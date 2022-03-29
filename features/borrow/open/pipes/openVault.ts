@@ -273,120 +273,153 @@ export function createOpenVault$(
   addGasEstimation$: AddGasEstimationFunction,
   ilk: string,
 ): Observable<OpenVaultState> {
-  return ilks$.pipe(
-    switchMap((ilks) =>
+  // Dried Operator Function
+  // public rolesToSortedFormRolesMapper(): OperatorFunction<Role[], FormRole[]> {
+  //   return map((roles: Role[]) => roles.map((role) =>
+  //       new FormRole(role.role, role.name, false)
+  //     ).sort((lhs, rhs) => (lhs.name.localeCompare(rhs.name)))
+  //   );
+  // }
+
+  const validateIlks = () => {
+    return switchMap((ilks) =>
       iif(
         () => !ilks.some((i) => i === ilk),
         throwError(new Error(`Ilk ${ilk} does not exist`)),
         of(ilks),
       ),
-    ),
+    )
+  }
+
+  return ilks$.pipe(
+    validateIlks(),
+    // switchMap((ilks) =>
+    //   iif(
+    //     () => !ilks.some((i) => i === ilk),
+    //     throwError(new Error(`Ilk ${ilk} does not exist`)),
+    //     of(ilks),
+    //   ),
+    // ),
     switchMap(() => combineLatest(context$, ilkToToken$)),
     switchMap(([context, ilkToToken]) => {
       const account = context.account
       const token = ilkToToken(ilk)
 
-      /*
-      This is necessary to bypass combineLatest 6 arg limit and to ensure
-      And to allow this pipe to flattened without deeply nesting combineLatest functions and switchMaps
-      */
-      const combinedChunkA$ = combineLatest(
+      return combineLatest(
         priceInfo$(token),
         balanceInfo$(token, account),
         ilkData$(ilk),
         proxyAddress$(account),
+        of(token),
+        of(account),
       )
-      const combinedChunkB$ = combineLatest(txHelpers$, of(context), of(token), of(account))
+    }),
+    switchMap(([priceInfo, balanceInfo, ilkData, proxyAddress, token, account]) => {
+      const _allowance$ =
+        (proxyAddress && allowance$(token, account, proxyAddress)) || of(undefined)
 
-      return combineLatest([combinedChunkA$, combinedChunkB$])
+      /*
+      This is necessary to bypass combineLatest 6 arg limit and to allow
+      this pipeline to be flattened without deeply nesting combineLatest functions and switchMaps
+      as we build up dependent observables
+      */
+      return combineLatest(
+        context$,
+        txHelpers$,
+        [of(priceInfo), of(balanceInfo), of(ilkData), of(proxyAddress), of(token), of(account)],
+        _allowance$,
+      )
     }),
     first(),
     switchMap(
-      ([[priceInfo, balanceInfo, ilkData, proxyAddress], [txHelpers, context, token, account]]: [
-        [PriceInfo, BalanceInfo, IlkData, any],
-        [TxHelpers, ContextConnected, string, string],
-      ]) =>
-        ((proxyAddress && allowance$(token, account, proxyAddress)) || of(undefined)).pipe(
-          first(),
-          switchMap((allowance: BigNumber | undefined) => {
-            const change$ = new Subject<OpenVaultChange>()
+      ([
+        context,
+        txHelpers,
+        [priceInfo, balanceInfo, ilkData, proxyAddress, token, account],
+        allowance,
+      ]: [
+        ContextConnected,
+        TxHelpers,
+        [PriceInfo, BalanceInfo, IlkData, string | undefined, string, string],
+        BigNumber | undefined,
+      ]) => {
+        const change$ = new Subject<OpenVaultChange>()
 
-            function change(ch: OpenVaultChange) {
-              change$.next(ch)
-            }
+        function change(ch: OpenVaultChange) {
+          change$.next(ch)
+        }
 
-            // NOTE: Not to be used in production/dev, test only
-            function injectStateOverride(stateToOverride: Partial<MutableOpenVaultState>) {
-              return change$.next({ kind: 'injectStateOverride', stateToOverride })
-            }
+        // NOTE: Not to be used in production/dev, test only
+        function injectStateOverride(stateToOverride: Partial<MutableOpenVaultState>) {
+          return change$.next({ kind: 'injectStateOverride', stateToOverride })
+        }
 
-            const totalSteps = calculateInitialTotalSteps(proxyAddress, token, allowance)
+        const totalSteps = calculateInitialTotalSteps(proxyAddress, token, allowance)
 
-            const initialState: OpenVaultState = {
-              ...defaultMutableOpenVaultState,
-              ...defaultOpenVaultStateCalculations,
-              ...defaultOpenVaultConditions,
-              priceInfo,
-              balanceInfo,
-              ilkData,
-              token,
-              account,
-              ilk,
-              proxyAddress,
-              allowance,
-              safeConfirmations: context.safeConfirmations,
-              etherscan: context.etherscan.url,
-              errorMessages: [],
-              warningMessages: [],
-              summary: defaultOpenVaultSummary,
-              totalSteps,
-              currentStep: 1,
-              clear: () => change({ kind: 'clear' }),
-              gasEstimationStatus: GasEstimationStatus.unset,
-              injectStateOverride,
-            }
+        const initialState: OpenVaultState = {
+          ...defaultMutableOpenVaultState,
+          ...defaultOpenVaultStateCalculations,
+          ...defaultOpenVaultConditions,
+          priceInfo,
+          balanceInfo,
+          ilkData,
+          token,
+          account,
+          ilk,
+          proxyAddress,
+          allowance,
+          safeConfirmations: context.safeConfirmations,
+          etherscan: context.etherscan.url,
+          errorMessages: [],
+          warningMessages: [],
+          summary: defaultOpenVaultSummary,
+          totalSteps,
+          currentStep: 1,
+          clear: () => change({ kind: 'clear' }),
+          gasEstimationStatus: GasEstimationStatus.unset,
+          injectStateOverride,
+        }
 
-            const apply = combineApplyChanges<OpenVaultState, OpenVaultChange>(
-              applyOpenVaultInput,
-              applyOpenVaultForm,
-              createApplyOpenVaultTransition<
-                OpenVaultState,
-                MutableOpenVaultState,
-                OpenVaultCalculations,
-                OpenVaultConditions
-              >(
-                defaultMutableOpenVaultState,
-                defaultOpenVaultStateCalculations,
-                defaultOpenVaultConditions,
-              ),
-              applyProxyChanges,
-              applyOpenVaultTransaction,
-              applyAllowanceChanges,
-              applyOpenVaultEnvironment,
-              applyOpenVaultInjectedOverride,
-              applyOpenVaultCalculations,
-              applyOpenVaultStageCategorisation,
-              applyOpenVaultConditions,
-              applyOpenVaultSummary,
-            )
+        const apply = combineApplyChanges<OpenVaultState, OpenVaultChange>(
+          applyOpenVaultInput,
+          applyOpenVaultForm,
+          createApplyOpenVaultTransition<
+            OpenVaultState,
+            MutableOpenVaultState,
+            OpenVaultCalculations,
+            OpenVaultConditions
+          >(
+            defaultMutableOpenVaultState,
+            defaultOpenVaultStateCalculations,
+            defaultOpenVaultConditions,
+          ),
+          applyProxyChanges,
+          applyOpenVaultTransaction,
+          applyAllowanceChanges,
+          applyOpenVaultEnvironment,
+          applyOpenVaultInjectedOverride,
+          applyOpenVaultCalculations,
+          applyOpenVaultStageCategorisation,
+          applyOpenVaultConditions,
+          applyOpenVaultSummary,
+        )
 
-            const environmentChanges$ = merge(
-              priceInfoChange$(priceInfo$, token),
-              balanceInfoChange$(balanceInfo$, token, account),
-              createIlkDataChange$(ilkData$, ilk),
-            )
+        const environmentChanges$ = merge(
+          priceInfoChange$(priceInfo$, token),
+          balanceInfoChange$(balanceInfo$, token, account),
+          createIlkDataChange$(ilkData$, ilk),
+        )
 
-            const connectedProxyAddress$ = proxyAddress$(account)
+        const connectedProxyAddress$ = proxyAddress$(account)
 
-            return merge(change$, environmentChanges$).pipe(
-              scan(apply, initialState),
-              map(validateErrors),
-              map(validateWarnings),
-              switchMap(curry(applyEstimateGas)(addGasEstimation$)),
-              map(curry(addTransitions)(txHelpers, connectedProxyAddress$, change)),
-            )
-          }),
-        ),
+        return merge(change$, environmentChanges$).pipe(
+          scan(apply, initialState),
+          map(validateErrors),
+          map(validateWarnings),
+          switchMap(curry(applyEstimateGas)(addGasEstimation$)),
+          map(curry(addTransitions)(txHelpers, connectedProxyAddress$, change)),
+        )
+      },
     ),
     shareReplay(1),
   )
