@@ -7,9 +7,11 @@ import { setAllowance } from 'features/allowance/setAllowance'
 import { BalanceInfo, balanceInfoChange$ } from 'features/shared/balanceInfo'
 import { PriceInfo, priceInfoChange$ } from 'features/shared/priceInfo'
 import { GasEstimationStatus, HasGasEstimation } from 'helpers/form'
+import { createStateChangeSubjectAndOverride } from 'helpers/vaults/createStateChangeSubjectAndOverride'
+import { createVaultInputs } from 'helpers/vaults/createVaultInputs'
 import { curry } from 'lodash'
 import { combineLatest, iif, merge, Observable, of, pipe, Subject, throwError } from 'rxjs'
-import { first, map, scan, shareReplay, switchMap, tap } from 'rxjs/operators'
+import { first, map, scan, shareReplay, switchMap } from 'rxjs/operators'
 
 import { combineApplyChanges } from '../../../../helpers/pipelines/combineApply'
 import { TxError } from '../../../../helpers/types'
@@ -276,84 +278,10 @@ export function createOpenVault$(
   // PLAN
   // - createVaultInputs - DONE
   // - validateIlks - DONE
-  // - confirmAccountExists
+  // - confirmAccountExists - N/A
   // - createInputs and generate combined list
-  // Create state change handler?
+  // Create state change handler? - DONE
   // Create vaults directory in helpers - existing tests probably cover the helpers sufficiently
-
-  function validateIlks(ilk: string) {
-    return pipe(
-      switchMap(([ilks, ...rest]: [string[]]) =>
-        iif(
-          () => !ilks.some((i) => i === ilk),
-          throwError(new Error(`Ilk ${ilk} does not exist`)),
-          of([...rest]),
-        ),
-      ),
-    )
-  }
-
-  function createVaultInputs({
-    context$,
-    txHelpers$,
-    priceInfo$,
-    balanceInfo$,
-    ilkData$,
-    proxyAddress$,
-    ilkToToken$,
-  }: {
-    context$: Observable<ContextConnected>
-    txHelpers$: Observable<TxHelpers>
-    priceInfo$: (token: string) => Observable<PriceInfo>
-    balanceInfo$: (token: string, address: string | undefined) => Observable<BalanceInfo>
-    ilkData$: (ilk: string) => Observable<IlkData>
-    proxyAddress$: (address: string) => Observable<string | undefined>
-    ilkToToken$: Observable<(ilk: string) => string>
-  }): Observable<
-    [
-      [ContextConnected, TxHelpers],
-      [PriceInfo, BalanceInfo, IlkData, string | undefined, string, string],
-    ]
-  > {
-    return combineLatest(ilks$, context$, ilkToToken$).pipe(
-      validateIlks(ilk),
-      switchMap(([context, ilkToToken]: [ContextConnected, (ilk: string) => string]) => {
-        const account = context.account
-        const token = ilkToToken(ilk)
-
-        const vaultInputsA$ = combineLatest(context$, txHelpers$)
-        const vaultInputsB$ = combineLatest(
-          priceInfo$(token),
-          balanceInfo$(token, account),
-          ilkData$(ilk),
-          proxyAddress$(account),
-          of(token),
-          of(account),
-        )
-
-        return combineLatest([vaultInputsA$, vaultInputsB$])
-      }),
-    )
-  }
-
-  function createStateChangeSubjectAndOverride() {
-    const change$ = new Subject<OpenVaultChange>()
-
-    function change(ch: OpenVaultChange) {
-      change$.next(ch)
-    }
-
-    // NOTE: Not to be used in production/dev, test only
-    function injectStateOverride(stateToOverride: Partial<MutableOpenVaultState>) {
-      return change$.next({ kind: 'injectStateOverride', stateToOverride })
-    }
-
-    return {
-      change$,
-      change,
-      injectStateOverride,
-    }
-  }
 
   // NOTE: running into issues when trying to work out allowance
   // Investigate tomorrow
@@ -366,6 +294,8 @@ export function createOpenVault$(
     ilkData$,
     proxyAddress$,
     ilkToToken$,
+    ilks$,
+    ilk,
   })
 
   return vaultInputs$.pipe(
@@ -376,16 +306,6 @@ export function createOpenVault$(
           first(),
           switchMap((allowance: BigNumber | undefined) => {
             const { change$, change, injectStateOverride } = createStateChangeSubjectAndOverride()
-            // const change$ = new Subject<OpenVaultChange>()
-
-            // function change(ch: OpenVaultChange) {
-            //   change$.next(ch)
-            // }
-
-            // // NOTE: Not to be used in production/dev, test only
-            // function injectStateOverride(stateToOverride: Partial<MutableOpenVaultState>) {
-            //   return change$.next({ kind: 'injectStateOverride', stateToOverride })
-            // }
 
             const totalSteps = calculateInitialTotalSteps(proxyAddress, token, allowance)
 
