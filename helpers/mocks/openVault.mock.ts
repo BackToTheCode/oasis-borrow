@@ -97,7 +97,7 @@ export function mockOpenVault$({
   }
 
   return createOpenVault$({
-    context$,
+    connectedContext$: context$,
     txHelpers$,
     proxyAddress$,
     allowance$,

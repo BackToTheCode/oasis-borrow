@@ -280,7 +280,7 @@ function createStateChangeSubjectAndOverride() {
 }
 
 export function createOpenVault$({
-  context$,
+  connectedContext$,
   txHelpers$,
   proxyAddress$,
   allowance$,
@@ -293,7 +293,7 @@ export function createOpenVault$({
   ilk,
 }: CreateOpenVault): Observable<OpenVaultState> {
   const vaultInputs$ = configureVaultInputs({
-    context$,
+    connectedContext$,
     txHelpers$,
     priceInfo$,
     balanceInfo$,

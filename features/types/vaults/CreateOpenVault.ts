@@ -9,7 +9,7 @@ import { UserSettingsState } from "features/userSettings/userSettings"
 import { Observable } from "rxjs"
 
 export interface CreateOpenVault {
-    context$: Observable<ContextConnected>
+    connectedContext$: Observable<ContextConnected>
     txHelpers$: Observable<TxHelpers>
     proxyAddress$: (address: string) => Observable<string | undefined>
     allowance$: (token: string, owner: string, spender: string) => Observable<BigNumber>

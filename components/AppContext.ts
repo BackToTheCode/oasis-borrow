@@ -380,7 +380,7 @@ export function setupAppContext() {
 
   const openVault$ = memoize((ilk: string) =>
     createOpenVault$({
-      context$: connectedContext$,
+      connectedContext$,
       txHelpers$,
       proxyAddress$,
       allowance$,
@@ -420,7 +420,7 @@ export function setupAppContext() {
 
   const openMultiplyVault$ = memoize((ilk: string) =>
     createOpenMultiplyVault$({
-      context$: connectedContext$,
+      connectedContext$,
       txHelpers$,
       proxyAddress$,
       allowance$,

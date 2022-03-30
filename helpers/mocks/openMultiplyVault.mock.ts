@@ -94,7 +94,7 @@ export function mockOpenMultiplyVault({
   const txHelpers$ = _txHelpers$ || of(protoTxHelpers)
 
   return createOpenMultiplyVault$({
-    context$: of(mockContextConnected),
+    connectedContext$: of(mockContextConnected),
     txHelpers$,
     proxyAddress$,
     allowance$,

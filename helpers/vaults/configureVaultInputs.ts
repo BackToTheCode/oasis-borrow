@@ -27,7 +27,7 @@ export function validateIlks(ilk: string) {
 }
 
 export function configureVaultInputs({
-  context$,
+  connectedContext$,
   txHelpers$,
   priceInfo$,
   balanceInfo$,
@@ -37,7 +37,7 @@ export function configureVaultInputs({
   ilks$,
   ilk,
 }: {
-  context$: Observable<ContextConnected>
+  connectedContext$: Observable<ContextConnected>
   txHelpers$: Observable<TxHelpers>
   priceInfo$: (token: string) => Observable<PriceInfo>
   balanceInfo$: (token: string, address: string | undefined) => Observable<BalanceInfo>
@@ -57,13 +57,13 @@ export function configureVaultInputs({
   ilks: string[]
   proxyAddress: string | undefined
 }> {
-  return combineLatest(context$, ilkToToken$).pipe(
+  return combineLatest(connectedContext$, ilkToToken$).pipe(
     switchMap(([context, ilkToToken]: [ContextConnected, (ilk: string) => string]) => {
       const account = context.account
       const token = ilkToToken(ilk)
 
       return combineLatestObject({
-        context: context$,
+        context: connectedContext$,
         txHelpers: txHelpers$,
         token: of(token),
         account: of(account),
@@ -79,7 +79,7 @@ export function configureVaultInputs({
 }
 
 export function configureMultiplyVaultInputs({
-  context$,
+  connectedContext$,
   txHelpers$,
   priceInfo$,
   balanceInfo$,
@@ -90,7 +90,7 @@ export function configureMultiplyVaultInputs({
   ilks$,
   ilk,
 }: {
-  context$: Observable<ContextConnected>
+  connectedContext$: Observable<ContextConnected>
   txHelpers$: Observable<TxHelpers>
   priceInfo$: (token: string) => Observable<PriceInfo>
   balanceInfo$: (token: string, address: string | undefined) => Observable<BalanceInfo>
@@ -113,7 +113,7 @@ export function configureMultiplyVaultInputs({
   slippageLimit: UserSettingsState
 }> {
   const vaultInputs$ = configureVaultInputs({
-    context$,
+    connectedContext$,
     txHelpers$,
     priceInfo$,
     balanceInfo$,

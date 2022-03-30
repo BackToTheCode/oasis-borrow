@@ -302,7 +302,7 @@ function createStateChangeSubjectAndOverride() {
 }
 
 export function createOpenMultiplyVault$({
-  context$,
+  connectedContext$,
   txHelpers$,
   proxyAddress$,
   allowance$,
@@ -317,7 +317,7 @@ export function createOpenMultiplyVault$({
   ilk,
 }: CreateOpenMultiplyVault): Observable<OpenMultiplyVaultState> {
   const vaultInputs$ = configureMultiplyVaultInputs({
-    context$,
+    connectedContext$,
     txHelpers$,
     priceInfo$,
     balanceInfo$,
