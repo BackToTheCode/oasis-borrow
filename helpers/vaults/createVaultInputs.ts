@@ -3,6 +3,7 @@ import { ContextConnected } from 'blockchain/network'
 import { TxHelpers } from 'components/AppContext'
 import { BalanceInfo } from 'features/shared/balanceInfo'
 import { PriceInfo } from 'features/shared/priceInfo'
+import { UserSettingsState } from 'features/userSettings/userSettings'
 import { combineLatest, iif, Observable, of, pipe, throwError } from 'rxjs'
 import { switchMap } from 'rxjs/operators'
 
@@ -25,6 +26,7 @@ export function createVaultInputs({
   balanceInfo$,
   ilkData$,
   proxyAddress$,
+  slippageLimit$,
   ilkToToken$,
   ilks$,
   ilk,
@@ -35,12 +37,13 @@ export function createVaultInputs({
   balanceInfo$: (token: string, address: string | undefined) => Observable<BalanceInfo>
   ilkData$: (ilk: string) => Observable<IlkData>
   proxyAddress$: (address: string) => Observable<string | undefined>
+  slippageLimit$?: Observable<UserSettingsState>
   ilkToToken$: Observable<(ilk: string) => string>
   ilks$: Observable<string[]>
   ilk: string
 }): Observable<
   [
-    [ContextConnected, TxHelpers],
+    [ContextConnected, TxHelpers, UserSettingsState],
     [PriceInfo, BalanceInfo, IlkData, string | undefined, string, string],
   ]
 > {
@@ -50,11 +53,18 @@ export function createVaultInputs({
       const account = context.account
       const token = ilkToToken(ilk)
 
+      const vaultInputObservables: (
+        | Observable<ContextConnected>
+        | Observable<TxHelpers>
+        | Observable<UserSettingsState>
+      )[] = [context$, txHelpers$]
+      if (slippageLimit$) vaultInputObservables.push(slippageLimit$)
+
       /*
         Combining observables in this way is
         Necessary to overcome combineLatest 6 arg limit
       */
-      const vaultInputsA$ = combineLatest(context$, txHelpers$)
+      const vaultInputsA$ = combineLatest(...vaultInputObservables)
       const vaultInputsB$ = combineLatest(
         priceInfo$(token),
         balanceInfo$(token, account),

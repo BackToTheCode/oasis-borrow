@@ -16,7 +16,7 @@ import { map } from 'rxjs/operators'
 import { parseVaultIdFromReceiptLogs } from '../../../shared/transactions'
 import { newCDPTxReceipt } from './fixtures/newCDPtxReceipt'
 
-describe('open multiply vault', () => {
+describe('openMultiplyVault', () => {
   beforeEach(() => {})
 
   describe('parseVaultIdFromReceiptLogs', () => {
