@@ -379,8 +379,8 @@ export function setupAppContext() {
   )
 
   const openVault$ = memoize((ilk: string) =>
-    createOpenVault$(
-      connectedContext$,
+    createOpenVault$({
+      context$: connectedContext$,
       txHelpers$,
       proxyAddress$,
       allowance$,
@@ -391,7 +391,7 @@ export function setupAppContext() {
       ilkToToken$,
       addGasEstimation$,
       ilk,
-    ),
+    }),
   )
 
   const exchangeQuote$ = memoize(

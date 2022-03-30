@@ -1,11 +1,11 @@
 import { BigNumber } from 'bignumber.js'
 import { maxUint256 } from 'blockchain/calls/erc20'
 import { createIlkDataChange$, IlkData } from 'blockchain/ilks'
-import { ContextConnected } from 'blockchain/network'
-import { AddGasEstimationFunction, TxHelpers } from 'components/AppContext'
+import { TxHelpers } from 'components/AppContext'
 import { setAllowance } from 'features/allowance/setAllowance'
 import { BalanceInfo, balanceInfoChange$ } from 'features/shared/balanceInfo'
 import { PriceInfo, priceInfoChange$ } from 'features/shared/priceInfo'
+import { CreateOpenVault } from 'features/types/vaults/CreateOpenVault'
 import { GasEstimationStatus, HasGasEstimation } from 'helpers/form'
 import { configureVaultInputs, validateIlks } from 'helpers/vaults/configureVaultInputs'
 import { curry } from 'lodash'
@@ -279,19 +279,19 @@ function createStateChangeSubjectAndOverride() {
   }
 }
 
-export function createOpenVault$(
-  context$: Observable<ContextConnected>,
-  txHelpers$: Observable<TxHelpers>,
-  proxyAddress$: (address: string) => Observable<string | undefined>,
-  allowance$: (token: string, owner: string, spender: string) => Observable<BigNumber>,
-  priceInfo$: (token: string) => Observable<PriceInfo>,
-  balanceInfo$: (token: string, address: string | undefined) => Observable<BalanceInfo>,
-  ilks$: Observable<string[]>,
-  ilkData$: (ilk: string) => Observable<IlkData>,
-  ilkToToken$: Observable<(ilk: string) => string>,
-  addGasEstimation$: AddGasEstimationFunction,
-  ilk: string,
-): Observable<OpenVaultState> {
+export function createOpenVault$({
+  context$,
+  txHelpers$,
+  proxyAddress$,
+  allowance$,
+  priceInfo$,
+  balanceInfo$,
+  ilks$,
+  ilkData$,
+  ilkToToken$,
+  addGasEstimation$,
+  ilk,
+}: CreateOpenVault): Observable<OpenVaultState> {
   const vaultInputs$ = configureVaultInputs({
     context$,
     txHelpers$,

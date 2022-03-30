@@ -2,13 +2,14 @@ import { BigNumber } from 'bignumber.js'
 import { maxUint256 } from 'blockchain/calls/erc20'
 import { createIlkDataChange$, IlkData } from 'blockchain/ilks'
 import { ContextConnected } from 'blockchain/network'
-import { AddGasEstimationFunction, TxHelpers } from 'components/AppContext'
+import { TxHelpers } from 'components/AppContext'
 import { calculateInitialTotalSteps } from 'features/borrow/open/pipes/openVaultConditions'
-import { ExchangeAction, ExchangeType, Quote } from 'features/exchange/exchange'
+import { Quote } from 'features/exchange/exchange'
 import { createProxy } from 'features/proxy/createProxy'
 import { BalanceInfo, balanceInfoChange$ } from 'features/shared/balanceInfo'
 import { PriceInfo, priceInfoChange$ } from 'features/shared/priceInfo'
-import { slippageChange$, UserSettingsState } from 'features/userSettings/userSettings'
+import { CreateOpenMultiplyVault } from 'features/types/vaults/CreateOpenVault'
+import { slippageChange$ } from 'features/userSettings/userSettings'
 import { GasEstimationStatus, HasGasEstimation } from 'helpers/form'
 import { configureMultiplyVaultInputs, validateIlks } from 'helpers/vaults/configureVaultInputs'
 import { curry } from 'lodash'
@@ -314,27 +315,7 @@ export function createOpenMultiplyVault$({
   addGasEstimation$,
   slippageLimit$,
   ilk,
-}: {
-  context$: Observable<ContextConnected>
-  txHelpers$: Observable<TxHelpers>
-  proxyAddress$: (address: string) => Observable<string | undefined>
-  allowance$: (token: string, owner: string, spender: string) => Observable<BigNumber>
-  priceInfo$: (token: string) => Observable<PriceInfo>
-  balanceInfo$: (token: string, address: string | undefined) => Observable<BalanceInfo>
-  ilks$: Observable<string[]>
-  ilkData$: (ilk: string) => Observable<IlkData>
-  ilkToToken$: Observable<(ilk: string) => string>
-  exchangeQuote$: (
-    token: string,
-    slippage: BigNumber,
-    amount: BigNumber,
-    action: ExchangeAction,
-    exchangeType: ExchangeType,
-  ) => Observable<Quote>
-  addGasEstimation$: AddGasEstimationFunction
-  slippageLimit$: Observable<UserSettingsState>
-  ilk: string
-}): Observable<OpenMultiplyVaultState> {
+}: CreateOpenMultiplyVault): Observable<OpenMultiplyVaultState> {
   const vaultInputs$ = configureMultiplyVaultInputs({
     context$,
     txHelpers$,

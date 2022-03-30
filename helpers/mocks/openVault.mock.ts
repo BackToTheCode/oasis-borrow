@@ -96,7 +96,7 @@ export function mockOpenVault$({
     return _allowance$ || of(allowance)
   }
 
-  return createOpenVault$(
+  return createOpenVault$({
     context$,
     txHelpers$,
     proxyAddress$,
@@ -106,7 +106,7 @@ export function mockOpenVault$({
     ilks$,
     ilkData$,
     ilkToToken$,
-    addGasEstimationMock,
+    addGasEstimation$: addGasEstimationMock,
     ilk,
-  )
+  })
 }
