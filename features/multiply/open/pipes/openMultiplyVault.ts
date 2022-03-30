@@ -12,7 +12,7 @@ import { slippageChange$, UserSettingsState } from 'features/userSettings/userSe
 import { GasEstimationStatus, HasGasEstimation } from 'helpers/form'
 import { createVaultInputs } from 'helpers/vaults/createVaultInputs'
 import { curry } from 'lodash'
-import { combineLatest, iif, merge, Observable, of, Subject, throwError } from 'rxjs'
+import { merge, Observable, of, Subject } from 'rxjs'
 import { first, map, scan, shareReplay, switchMap, tap } from 'rxjs/operators'
 
 import { combineApplyChanges } from '../../../../helpers/pipelines/combineApply'

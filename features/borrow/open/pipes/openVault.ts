@@ -9,7 +9,7 @@ import { PriceInfo, priceInfoChange$ } from 'features/shared/priceInfo'
 import { GasEstimationStatus, HasGasEstimation } from 'helpers/form'
 import { createVaultInputs } from 'helpers/vaults/createVaultInputs'
 import { curry } from 'lodash'
-import { combineLatest, iif, merge, Observable, of, pipe, Subject, throwError } from 'rxjs'
+import { merge, Observable, of, Subject } from 'rxjs'
 import { first, map, scan, shareReplay, switchMap } from 'rxjs/operators'
 
 import { combineApplyChanges } from '../../../../helpers/pipelines/combineApply'
