@@ -64,8 +64,8 @@ export function createVaultInputs({
         Combining observables in this way is
         Necessary to overcome combineLatest 6 arg limit
       */
-      const vaultInputsA$ = combineLatest(...vaultInputObservables)
-      const vaultInputsB$ = combineLatest(
+      const inputs$ = combineLatest(...vaultInputObservables)
+      const paramaterisedInputs$ = combineLatest(
         priceInfo$(token),
         balanceInfo$(token, account),
         ilkData$(ilk),
@@ -74,7 +74,7 @@ export function createVaultInputs({
         of(account),
       )
 
-      return combineLatest([vaultInputsA$, vaultInputsB$])
+      return combineLatest([inputs$, paramaterisedInputs$])
     }),
   )
 }
