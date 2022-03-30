@@ -1,6 +1,6 @@
 import BigNumber from 'bignumber.js'
 import { IlkData } from 'blockchain/ilks'
-import { protoTxHelpers, TxHelpers } from 'components/AppContext'
+import { ilkToToken$, protoTxHelpers, TxHelpers } from 'components/AppContext'
 import { BalanceInfo } from 'features/shared/balanceInfo'
 import { PriceInfo } from 'features/shared/priceInfo'
 import { mockBalanceInfo$, MockBalanceInfoProps } from 'helpers/mocks/balanceInfo.mock'
@@ -93,8 +93,8 @@ export function mockOpenMultiplyVault({
 
   const txHelpers$ = _txHelpers$ || of(protoTxHelpers)
 
-  return createOpenMultiplyVault$(
-    of(mockContextConnected),
+  return createOpenMultiplyVault$({
+    context$: of(mockContextConnected),
     txHelpers$,
     proxyAddress$,
     allowance$,
@@ -102,9 +102,10 @@ export function mockOpenMultiplyVault({
     balanceInfo$,
     ilks$,
     ilkData$,
-    mockExchangeQuote$(exchangeQuote),
-    addGasEstimationMock,
-    slippageLimitMock(),
+    ilkToToken$,
+    exchangeQuote$: mockExchangeQuote$(exchangeQuote),
+    addGasEstimation$: addGasEstimationMock,
+    slippageLimit$: slippageLimitMock(),
     ilk,
-  )
+  })
 }

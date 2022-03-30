@@ -10,6 +10,7 @@ import { BalanceInfo, balanceInfoChange$ } from 'features/shared/balanceInfo'
 import { PriceInfo, priceInfoChange$ } from 'features/shared/priceInfo'
 import { slippageChange$, UserSettingsState } from 'features/userSettings/userSettings'
 import { GasEstimationStatus, HasGasEstimation } from 'helpers/form'
+import { createVaultInputs } from 'helpers/vaults/createVaultInputs'
 import { curry } from 'lodash'
 import { combineLatest, iif, merge, Observable, of, Subject, throwError } from 'rxjs'
 import { first, map, scan, shareReplay, switchMap, tap } from 'rxjs/operators'
@@ -281,145 +282,279 @@ export const defaultMutableOpenMultiplyVaultState: MutableOpenMultiplyVaultState
   requiredCollRatio: undefined,
 }
 
-export function createOpenMultiplyVault$(
-  context$: Observable<ContextConnected>,
-  txHelpers$: Observable<TxHelpers>,
-  proxyAddress$: (address: string) => Observable<string | undefined>,
-  allowance$: (token: string, owner: string, spender: string) => Observable<BigNumber>,
-  priceInfo$: (token: string) => Observable<PriceInfo>,
-  balanceInfo$: (token: string, address: string | undefined) => Observable<BalanceInfo>,
-  ilks$: Observable<string[]>,
-  ilkData$: (ilk: string) => Observable<IlkData>,
+function createStateChangeSubjectAndOverride() {
+  const change$ = new Subject<OpenMultiplyVaultChange>()
+  function change(ch: OpenMultiplyVaultChange) {
+    change$?.next(ch)
+  }
+
+  // NOTE: Not to be used in production/dev, test only
+  function injectStateOverride(stateToOverride: Partial<MutableOpenMultiplyVaultState>) {
+    return change$?.next({ kind: 'injectStateOverride', stateToOverride })
+  }
+
+  return {
+    change$,
+    change,
+    injectStateOverride,
+  }
+}
+
+export function createOpenMultiplyVault$({
+  context$,
+  txHelpers$,
+  proxyAddress$,
+  allowance$,
+  priceInfo$,
+  balanceInfo$,
+  ilks$,
+  ilkData$,
+  ilkToToken$,
+  exchangeQuote$,
+  addGasEstimation$,
+  slippageLimit$,
+  ilk,
+}: {
+  context$: Observable<ContextConnected>
+  txHelpers$: Observable<TxHelpers>
+  proxyAddress$: (address: string) => Observable<string | undefined>
+  allowance$: (token: string, owner: string, spender: string) => Observable<BigNumber>
+  priceInfo$: (token: string) => Observable<PriceInfo>
+  balanceInfo$: (token: string, address: string | undefined) => Observable<BalanceInfo>
+  ilks$: Observable<string[]>
+  ilkData$: (ilk: string) => Observable<IlkData>
+  ilkToToken$: Observable<(ilk: string) => string>
   exchangeQuote$: (
     token: string,
     slippage: BigNumber,
     amount: BigNumber,
     action: ExchangeAction,
     exchangeType: ExchangeType,
-  ) => Observable<Quote>,
-  addGasEstimation$: AddGasEstimationFunction,
-  slippageLimit$: Observable<UserSettingsState>,
-  ilk: string,
-): Observable<OpenMultiplyVaultState> {
-  return ilks$.pipe(
-    switchMap((ilks) =>
-      iif(
-        () => !ilks.some((i) => i === ilk),
-        throwError(new Error(`Ilk ${ilk} does not exist`)),
-        combineLatest(context$, txHelpers$, ilkData$(ilk), slippageLimit$).pipe(
+  ) => Observable<Quote>
+  addGasEstimation$: AddGasEstimationFunction
+  slippageLimit$: Observable<UserSettingsState>
+  ilk: string
+}): Observable<OpenMultiplyVaultState> {
+  const vaultInputs$ = createVaultInputs({
+    context$,
+    txHelpers$,
+    priceInfo$,
+    balanceInfo$,
+    ilkData$,
+    proxyAddress$,
+    ilkToToken$,
+    ilks$,
+    ilk,
+  })
+
+  return vaultInputs$.pipe(
+    first(),
+    switchMap(
+      ([[context, txHelpers], [priceInfo, balanceInfo, ilkData, proxyAddress, token, account]]) => {
+        return ((proxyAddress && allowance$(token, account, proxyAddress)) || of(undefined)).pipe(
           first(),
-          switchMap(([context, txHelpers, ilkData, { slippage }]) => {
-            const { token } = ilkData
-            const account = context.account
-            return combineLatest(
-              priceInfo$(token),
-              balanceInfo$(token, account),
-              proxyAddress$(account),
-            ).pipe(
-              first(),
-              switchMap(([priceInfo, balanceInfo, proxyAddress]) =>
-                ((proxyAddress && allowance$(token, account, proxyAddress)) || of(undefined)).pipe(
-                  first(),
-                  switchMap((allowance) => {
-                    const change$ = new Subject<OpenMultiplyVaultChange>()
+          switchMap((allowance) => {
+            const { change$, change, injectStateOverride } = createStateChangeSubjectAndOverride()
 
-                    function change(ch: OpenMultiplyVaultChange) {
-                      change$.next(ch)
-                    }
+            const totalSteps = calculateInitialTotalSteps(proxyAddress, token, allowance)
 
-                    // NOTE: Not to be used in production/dev, test only
-                    function injectStateOverride(
-                      stateToOverride: Partial<MutableOpenMultiplyVaultState>,
-                    ) {
-                      return change$.next({ kind: 'injectStateOverride', stateToOverride })
-                    }
+            const initialState: OpenMultiplyVaultState = {
+              ...defaultMutableOpenMultiplyVaultState,
+              ...defaultOpenMultiplyVaultStateCalculations,
+              ...defaultOpenMultiplyVaultConditions,
+              priceInfo,
+              balanceInfo,
+              ilkData,
+              token,
+              account,
+              ilk,
+              proxyAddress,
+              allowance,
+              safeConfirmations: context.safeConfirmations,
+              etherscan: context.etherscan.url,
+              errorMessages: [],
+              warningMessages: [],
+              summary: defaultOpenVaultSummary,
+              slippage,
+              totalSteps,
+              currentStep: 1,
+              exchangeError: false,
+              clear: () => change({ kind: 'clear' }),
+              gasEstimationStatus: GasEstimationStatus.unset,
+              injectStateOverride,
+            }
 
-                    const totalSteps = calculateInitialTotalSteps(proxyAddress, token, allowance)
+            const stateSubject$ = new Subject<OpenMultiplyVaultState>()
 
-                    const initialState: OpenMultiplyVaultState = {
-                      ...defaultMutableOpenMultiplyVaultState,
-                      ...defaultOpenMultiplyVaultStateCalculations,
-                      ...defaultOpenMultiplyVaultConditions,
-                      priceInfo,
-                      balanceInfo,
-                      ilkData,
-                      token,
-                      account,
-                      ilk,
-                      proxyAddress,
-                      allowance,
-                      safeConfirmations: context.safeConfirmations,
-                      etherscan: context.etherscan.url,
-                      errorMessages: [],
-                      warningMessages: [],
-                      summary: defaultOpenVaultSummary,
-                      slippage,
-                      totalSteps,
-                      currentStep: 1,
-                      exchangeError: false,
-                      clear: () => change({ kind: 'clear' }),
-                      gasEstimationStatus: GasEstimationStatus.unset,
-                      injectStateOverride,
-                    }
-
-                    const stateSubject$ = new Subject<OpenMultiplyVaultState>()
-
-                    const apply = combineApplyChanges<
-                      OpenMultiplyVaultState,
-                      OpenMultiplyVaultChange
-                    >(
-                      applyOpenVaultInput,
-                      applyExchange,
-                      createApplyOpenVaultTransition<
-                        OpenMultiplyVaultState,
-                        MutableOpenMultiplyVaultState,
-                        OpenMultiplyVaultCalculations,
-                        OpenMultiplyVaultConditions
-                      >(
-                        defaultMutableOpenMultiplyVaultState,
-                        defaultOpenMultiplyVaultStateCalculations,
-                        defaultOpenMultiplyVaultConditions,
-                      ),
-                      applyProxyChanges,
-                      applyAllowanceChanges,
-                      applyOpenMultiplyVaultTransaction,
-                      applyOpenVaultEnvironment,
-                      applyOpenVaultInjectedOverride,
-                      applyOpenMultiplyVaultCalculations,
-                      applyOpenVaultStageCategorisation,
-                      applyOpenVaultConditions,
-                      applyOpenVaultSummary,
-                    )
-
-                    const environmentChanges$ = merge(
-                      priceInfoChange$(priceInfo$, token),
-                      balanceInfoChange$(balanceInfo$, token, account),
-                      createIlkDataChange$(ilkData$, ilk),
-                      createInitialQuoteChange(exchangeQuote$, token, slippage),
-                      createExchangeChange$(exchangeQuote$, stateSubject$),
-                      slippageChange$(slippageLimit$),
-                    )
-
-                    const connectedProxyAddress$ = proxyAddress$(account)
-
-                    return merge(change$, environmentChanges$).pipe(
-                      scan(apply, initialState),
-                      map(validateErrors),
-                      map(validateWarnings),
-                      switchMap(curry(applyEstimateGas)(addGasEstimation$)),
-                      map(
-                        curry(addTransitions)(txHelpers, context, connectedProxyAddress$, change),
-                      ),
-                      tap((state) => stateSubject$.next(state)),
-                    )
-                  }),
-                ),
+            const apply = combineApplyChanges<OpenMultiplyVaultState, OpenMultiplyVaultChange>(
+              applyOpenVaultInput,
+              applyExchange,
+              createApplyOpenVaultTransition<
+                OpenMultiplyVaultState,
+                MutableOpenMultiplyVaultState,
+                OpenMultiplyVaultCalculations,
+                OpenMultiplyVaultConditions
+              >(
+                defaultMutableOpenMultiplyVaultState,
+                defaultOpenMultiplyVaultStateCalculations,
+                defaultOpenMultiplyVaultConditions,
               ),
+              applyProxyChanges,
+              applyAllowanceChanges,
+              applyOpenMultiplyVaultTransaction,
+              applyOpenVaultEnvironment,
+              applyOpenVaultInjectedOverride,
+              applyOpenMultiplyVaultCalculations,
+              applyOpenVaultStageCategorisation,
+              applyOpenVaultConditions,
+              applyOpenVaultSummary,
+            )
+
+            const environmentChanges$ = merge(
+              priceInfoChange$(priceInfo$, token),
+              balanceInfoChange$(balanceInfo$, token, account),
+              createIlkDataChange$(ilkData$, ilk),
+              createInitialQuoteChange(exchangeQuote$, token, slippage),
+              createExchangeChange$(exchangeQuote$, stateSubject$),
+              slippageChange$(slippageLimit$),
+            )
+
+            const connectedProxyAddress$ = proxyAddress$(account)
+
+            return merge(change$, environmentChanges$).pipe(
+              scan(apply, initialState),
+              map(validateErrors),
+              map(validateWarnings),
+              switchMap(curry(applyEstimateGas)(addGasEstimation$)),
+              map(curry(addTransitions)(txHelpers, context, connectedProxyAddress$, change)),
+              tap((state) => stateSubject$.next(state)),
             )
           }),
-        ),
-      ),
+        )
+      },
     ),
+
     shareReplay(1),
   )
+  // return ilks$.pipe(
+  //   switchMap((ilks) =>
+  //     iif(
+  //       () => !ilks.some((i) => i === ilk),
+  //       throwError(new Error(`Ilk ${ilk} does not exist`)),
+  //       combineLatest(context$, txHelpers$, ilkData$(ilk), slippageLimit$).pipe(
+  //         first(),
+  //         switchMap(([context, txHelpers, ilkData, { slippage }]) => {
+  //           const { token } = ilkData
+  //           const account = context.account
+  //           return combineLatest(
+  //             priceInfo$(token),
+  //             balanceInfo$(token, account),
+  //             proxyAddress$(account),
+  //           ).pipe(
+  //             first(),
+  //             switchMap(([priceInfo, balanceInfo, proxyAddress]) =>
+  //               ((proxyAddress && allowance$(token, account, proxyAddress)) || of(undefined)).pipe(
+  //                 first(),
+  //                 switchMap((allowance) => {
+  //                   const change$ = new Subject<OpenMultiplyVaultChange>()
+
+  //                   function change(ch: OpenMultiplyVaultChange) {
+  //                     change$.next(ch)
+  //                   }
+
+  //                   // NOTE: Not to be used in production/dev, test only
+  //                   function injectStateOverride(
+  //                     stateToOverride: Partial<MutableOpenMultiplyVaultState>,
+  //                   ) {
+  //                     return change$.next({ kind: 'injectStateOverride', stateToOverride })
+  //                   }
+
+  //                   const totalSteps = calculateInitialTotalSteps(proxyAddress, token, allowance)
+
+  // const initialState: OpenMultiplyVaultState = {
+  //   ...defaultMutableOpenMultiplyVaultState,
+  //   ...defaultOpenMultiplyVaultStateCalculations,
+  //   ...defaultOpenMultiplyVaultConditions,
+  //   priceInfo,
+  //   balanceInfo,
+  //   ilkData,
+  //   token,
+  //   account,
+  //   ilk,
+  //   proxyAddress,
+  //   allowance,
+  //   safeConfirmations: context.safeConfirmations,
+  //   etherscan: context.etherscan.url,
+  //   errorMessages: [],
+  //   warningMessages: [],
+  //   summary: defaultOpenVaultSummary,
+  //   slippage,
+  //   totalSteps,
+  //   currentStep: 1,
+  //   exchangeError: false,
+  //   clear: () => change({ kind: 'clear' }),
+  //   gasEstimationStatus: GasEstimationStatus.unset,
+  //   injectStateOverride,
+  // }
+
+  //                   const stateSubject$ = new Subject<OpenMultiplyVaultState>()
+
+  //                   const apply = combineApplyChanges<
+  //                     OpenMultiplyVaultState,
+  //                     OpenMultiplyVaultChange
+  //                   >(
+  //                     applyOpenVaultInput,
+  //                     applyExchange,
+  //                     createApplyOpenVaultTransition<
+  //                       OpenMultiplyVaultState,
+  //                       MutableOpenMultiplyVaultState,
+  //                       OpenMultiplyVaultCalculations,
+  //                       OpenMultiplyVaultConditions
+  //                     >(
+  //                       defaultMutableOpenMultiplyVaultState,
+  //                       defaultOpenMultiplyVaultStateCalculations,
+  //                       defaultOpenMultiplyVaultConditions,
+  //                     ),
+  //                     applyProxyChanges,
+  //                     applyAllowanceChanges,
+  //                     applyOpenMultiplyVaultTransaction,
+  //                     applyOpenVaultEnvironment,
+  //                     applyOpenVaultInjectedOverride,
+  //                     applyOpenMultiplyVaultCalculations,
+  //                     applyOpenVaultStageCategorisation,
+  //                     applyOpenVaultConditions,
+  //                     applyOpenVaultSummary,
+  //                   )
+
+  //                   const environmentChanges$ = merge(
+  //                     priceInfoChange$(priceInfo$, token),
+  //                     balanceInfoChange$(balanceInfo$, token, account),
+  //                     createIlkDataChange$(ilkData$, ilk),
+  //                     createInitialQuoteChange(exchangeQuote$, token, slippage),
+  //                     createExchangeChange$(exchangeQuote$, stateSubject$),
+  //                     slippageChange$(slippageLimit$),
+  //                   )
+
+  //                   const connectedProxyAddress$ = proxyAddress$(account)
+
+  //                   return merge(change$, environmentChanges$).pipe(
+  //                     scan(apply, initialState),
+  //                     map(validateErrors),
+  //                     map(validateWarnings),
+  //                     switchMap(curry(applyEstimateGas)(addGasEstimation$)),
+  //                     map(
+  //                       curry(addTransitions)(txHelpers, context, connectedProxyAddress$, change),
+  //                     ),
+  //                     tap((state) => stateSubject$.next(state)),
+  //                   )
+  //                 }),
+  //               ),
+  //             ),
+  //           )
+  //         }),
+  //       ),
+  //     ),
+  //   ),
+  //   shareReplay(1),
+  // )
 }

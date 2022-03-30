@@ -419,8 +419,8 @@ export function setupAppContext() {
   )
 
   const openMultiplyVault$ = memoize((ilk: string) =>
-    createOpenMultiplyVault$(
-      connectedContext$,
+    createOpenMultiplyVault$({
+      context$: connectedContext$,
       txHelpers$,
       proxyAddress$,
       allowance$,
@@ -428,11 +428,12 @@ export function setupAppContext() {
       balanceInfo$,
       ilks$,
       ilkData$,
+      ilkToToken$,
       exchangeQuote$,
       addGasEstimation$,
-      userSettings$,
+      slippageLimit$: userSettings$,
       ilk,
-    ),
+    }),
   )
 
   const token1Balance$ = observe(onEveryBlock$, context$, getToken1Balance)

@@ -7,7 +7,6 @@ import { setAllowance } from 'features/allowance/setAllowance'
 import { BalanceInfo, balanceInfoChange$ } from 'features/shared/balanceInfo'
 import { PriceInfo, priceInfoChange$ } from 'features/shared/priceInfo'
 import { GasEstimationStatus, HasGasEstimation } from 'helpers/form'
-import { createStateChangeSubjectAndOverride } from 'helpers/vaults/createStateChangeSubjectAndOverride'
 import { createVaultInputs } from 'helpers/vaults/createVaultInputs'
 import { curry } from 'lodash'
 import { combineLatest, iif, merge, Observable, of, pipe, Subject, throwError } from 'rxjs'
@@ -262,6 +261,24 @@ export const defaultMutableOpenVaultState: MutableOpenVaultState = {
   generateAmount: undefined,
 }
 
+function createStateChangeSubjectAndOverride() {
+  const change$ = new Subject<OpenVaultChange>()
+  function change(ch: OpenVaultChange) {
+    change$?.next(ch)
+  }
+
+  // NOTE: Not to be used in production/dev, test only
+  function injectStateOverride(stateToOverride: Partial<MutableOpenVaultState>) {
+    return change$?.next({ kind: 'injectStateOverride', stateToOverride })
+  }
+
+  return {
+    change$,
+    change,
+    injectStateOverride,
+  }
+}
+
 export function createOpenVault$(
   context$: Observable<ContextConnected>,
   txHelpers$: Observable<TxHelpers>,
@@ -275,17 +292,6 @@ export function createOpenVault$(
   addGasEstimation$: AddGasEstimationFunction,
   ilk: string,
 ): Observable<OpenVaultState> {
-  // PLAN
-  // - createVaultInputs - DONE
-  // - validateIlks - DONE
-  // - confirmAccountExists - N/A
-  // - createInputs and generate combined list
-  // Create state change handler? - DONE
-  // Create vaults directory in helpers - existing tests probably cover the helpers sufficiently
-
-  // NOTE: running into issues when trying to work out allowance
-  // Investigate tomorrow
-
   const vaultInputs$ = createVaultInputs({
     context$,
     txHelpers$,
@@ -376,5 +382,6 @@ export function createOpenVault$(
         )
       },
     ),
+    shareReplay(1),
   )
 }

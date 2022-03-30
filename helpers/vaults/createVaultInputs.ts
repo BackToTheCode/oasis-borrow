@@ -50,6 +50,10 @@ export function createVaultInputs({
       const account = context.account
       const token = ilkToToken(ilk)
 
+      /*
+        Combining observables in this way is
+        Necessary to overcome combineLatest 6 arg limit
+      */
       const vaultInputsA$ = combineLatest(context$, txHelpers$)
       const vaultInputsB$ = combineLatest(
         priceInfo$(token),
