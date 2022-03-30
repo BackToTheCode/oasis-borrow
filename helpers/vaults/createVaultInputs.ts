@@ -5,6 +5,7 @@ import { BalanceInfo } from 'features/shared/balanceInfo'
 import { PriceInfo } from 'features/shared/priceInfo'
 import { UserSettingsState } from 'features/userSettings/userSettings'
 import { combineLatest, iif, Observable, of, pipe, throwError } from 'rxjs'
+import { combineLatestObject } from 'rxjs-etc'
 import { switchMap } from 'rxjs/operators'
 
 function validateIlks(ilk: string) {
@@ -41,39 +42,34 @@ export function createVaultInputs({
   ilkToToken$: Observable<(ilk: string) => string>
   ilks$: Observable<string[]>
   ilk: string
-}): Observable<
-  [
-    [ContextConnected, TxHelpers, string, string, UserSettingsState],
-    [PriceInfo, BalanceInfo, IlkData, string | undefined],
-  ]
-> {
+}): Observable<{
+  context: ContextConnected
+  txHelpers: TxHelpers
+  token: string
+  account: string
+  priceInfo: PriceInfo
+  balanceInfo: BalanceInfo
+  ilkData: IlkData
+  proxyAddress: string | undefined
+  slippageLimit: UserSettingsState
+}> {
   return combineLatest(ilks$, context$, ilkToToken$).pipe(
     validateIlks(ilk),
     switchMap(([context, ilkToToken]: [ContextConnected, (ilk: string) => string]) => {
       const account = context.account
       const token = ilkToToken(ilk)
 
-      const vaultInputObservables: (
-        | Observable<ContextConnected>
-        | Observable<TxHelpers>
-        | Observable<UserSettingsState>
-        | Observable<string>
-      )[] = [context$, txHelpers$, of(token), of(account)]
-      if (slippageLimit$) vaultInputObservables.push(slippageLimit$)
-
-      /*
-        Combining observables in this way is
-        Necessary to overcome combineLatest 6 arg limit
-      */
-      const inputs$ = combineLatest(...vaultInputObservables)
-      const paramaterisedInputs$ = combineLatest(
-        priceInfo$(token),
-        balanceInfo$(token, account),
-        ilkData$(ilk),
-        proxyAddress$(account),
-      )
-
-      return combineLatest([inputs$, paramaterisedInputs$])
+      return combineLatestObject({
+        context: context$,
+        txHelpers: txHelpers$,
+        token: of(token),
+        account: of(account),
+        priceInfo: priceInfo$(token),
+        balanceInfo: balanceInfo$(token, account),
+        ilkData: ilkData$(ilk),
+        proxyAddress: proxyAddress$(account),
+        slippageLimit: slippageLimit$,
+      })
     }),
   )
 }

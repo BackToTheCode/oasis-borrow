@@ -123,6 +123,7 @@
     "release-it": "^14.12.1",
     "request": "^2.88.2",
     "rxjs": "^6.2.0",
+    "rxjs-etc": "^10.6.2",
     "rxjs-take-while-inclusive": "^2.1.0",
     "text-mask-addons": "^3.7.2",
     "theme-ui": "^0.3.1",

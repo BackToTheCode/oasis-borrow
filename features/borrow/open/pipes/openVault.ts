@@ -307,7 +307,7 @@ export function createOpenVault$(
   return vaultInputs$.pipe(
     first(),
     switchMap(
-      ([[context, txHelpers, token, account], [priceInfo, balanceInfo, ilkData, proxyAddress]]) => {
+      ({ context, txHelpers, token, account, priceInfo, balanceInfo, ilkData, proxyAddress }) => {
         return ((proxyAddress && allowance$(token, account, proxyAddress)) || of(undefined)).pipe(
           first(),
           switchMap((allowance: BigNumber | undefined) => {

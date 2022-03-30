@@ -351,10 +351,18 @@ export function createOpenMultiplyVault$({
   return vaultInputs$.pipe(
     first(),
     switchMap(
-      ([
-        [context, txHelpers, token, account, { slippage }],
-        [priceInfo, balanceInfo, ilkData, proxyAddress],
-      ]) => {
+      ({
+        context,
+        txHelpers,
+        token,
+        account,
+        priceInfo,
+        balanceInfo,
+        ilkData,
+        proxyAddress,
+        slippageLimit,
+      }) => {
+        const { slippage } = slippageLimit || {}
         return ((proxyAddress && allowance$(token, account, proxyAddress)) || of(undefined)).pipe(
           first(),
           switchMap((allowance) => {
