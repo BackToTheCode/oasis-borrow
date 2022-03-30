@@ -11,7 +11,7 @@ import { PriceInfo, priceInfoChange$ } from 'features/shared/priceInfo'
 import { CreateOpenMultiplyVault } from 'features/types/vaults/CreateOpenVault'
 import { slippageChange$ } from 'features/userSettings/userSettings'
 import { GasEstimationStatus, HasGasEstimation } from 'helpers/form'
-import { configureMultiplyVaultInputs, validateIlks } from 'helpers/vaults/configureVaultInputs'
+import { configureMultiplyVaultInputs, validateIlk } from 'helpers/vaults/configureVaultInputs'
 import { curry } from 'lodash'
 import { merge, Observable, of, Subject } from 'rxjs'
 import { first, map, scan, shareReplay, switchMap, tap } from 'rxjs/operators'
@@ -330,7 +330,7 @@ export function createOpenMultiplyVault$({
   })
 
   return vaultInputs$.pipe(
-    validateIlks(ilk),
+    validateIlk(ilk),
     first(),
     switchMap(
       ({

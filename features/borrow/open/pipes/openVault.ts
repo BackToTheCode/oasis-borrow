@@ -7,7 +7,7 @@ import { BalanceInfo, balanceInfoChange$ } from 'features/shared/balanceInfo'
 import { PriceInfo, priceInfoChange$ } from 'features/shared/priceInfo'
 import { CreateOpenVault } from 'features/types/vaults/CreateOpenVault'
 import { GasEstimationStatus, HasGasEstimation } from 'helpers/form'
-import { configureVaultInputs, validateIlks } from 'helpers/vaults/configureVaultInputs'
+import { configureVaultInputs, validateIlk } from 'helpers/vaults/configureVaultInputs'
 import { curry } from 'lodash'
 import { merge, Observable, of, Subject } from 'rxjs'
 import { first, map, scan, shareReplay, switchMap } from 'rxjs/operators'
@@ -305,7 +305,7 @@ export function createOpenVault$({
   })
 
   return vaultInputs$.pipe(
-    validateIlks(ilk),
+    validateIlk(ilk),
     first(),
     switchMap(
       ({ context, txHelpers, token, account, priceInfo, balanceInfo, ilkData, proxyAddress }) => {

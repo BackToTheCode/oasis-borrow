@@ -14,7 +14,7 @@ declare module 'rxjs/internal/util/pipe' {
   ): <R extends T>(source: Observable<R>) => Observable<R>
 }
 
-export function validateIlks(ilk: string) {
+export function validateIlk(ilk: string) {
   return pipe(
     switchMap(({ ilks, ...rest }: { ilks: string[] }) =>
       iif(
