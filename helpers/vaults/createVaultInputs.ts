@@ -43,8 +43,8 @@ export function createVaultInputs({
   ilk: string
 }): Observable<
   [
-    [ContextConnected, TxHelpers, UserSettingsState],
-    [PriceInfo, BalanceInfo, IlkData, string | undefined, string, string],
+    [ContextConnected, TxHelpers, string, string, UserSettingsState],
+    [PriceInfo, BalanceInfo, IlkData, string | undefined],
   ]
 > {
   return combineLatest(ilks$, context$, ilkToToken$).pipe(
@@ -57,7 +57,8 @@ export function createVaultInputs({
         | Observable<ContextConnected>
         | Observable<TxHelpers>
         | Observable<UserSettingsState>
-      )[] = [context$, txHelpers$]
+        | Observable<string>
+      )[] = [context$, txHelpers$, of(token), of(account)]
       if (slippageLimit$) vaultInputObservables.push(slippageLimit$)
 
       /*
@@ -70,8 +71,6 @@ export function createVaultInputs({
         balanceInfo$(token, account),
         ilkData$(ilk),
         proxyAddress$(account),
-        of(token),
-        of(account),
       )
 
       return combineLatest([inputs$, paramaterisedInputs$])
