@@ -8,19 +8,77 @@ import { combineLatest, iif, Observable, of, pipe, throwError } from 'rxjs'
 import { combineLatestObject } from 'rxjs-etc'
 import { switchMap } from 'rxjs/operators'
 
-function validateIlks(ilk: string) {
+declare module 'rxjs/internal/util/pipe' {
+  export function pipe<T>(
+    ...operators: any[]
+  ): <R extends T>(source: Observable<R>) => Observable<R>
+}
+
+export function validateIlks(ilk: string) {
   return pipe(
-    switchMap(([ilks, ...rest]: [string[]]) =>
+    switchMap(({ ilks, ...rest }: { ilks: string[] }) =>
       iif(
         () => !ilks.some((i) => i === ilk),
         throwError(new Error(`Ilk ${ilk} does not exist`)),
-        of([...rest]),
+        of(rest),
       ),
     ),
   )
 }
 
-export function createVaultInputs({
+export function configureVaultInputs({
+  context$,
+  txHelpers$,
+  priceInfo$,
+  balanceInfo$,
+  ilkData$,
+  proxyAddress$,
+  ilkToToken$,
+  ilks$,
+  ilk,
+}: {
+  context$: Observable<ContextConnected>
+  txHelpers$: Observable<TxHelpers>
+  priceInfo$: (token: string) => Observable<PriceInfo>
+  balanceInfo$: (token: string, address: string | undefined) => Observable<BalanceInfo>
+  ilkData$: (ilk: string) => Observable<IlkData>
+  proxyAddress$: (address: string) => Observable<string | undefined>
+  ilkToToken$: Observable<(ilk: string) => string>
+  ilks$: Observable<string[]>
+  ilk: string
+}): Observable<{
+  context: ContextConnected
+  txHelpers: TxHelpers
+  token: string
+  account: string
+  priceInfo: PriceInfo
+  balanceInfo: BalanceInfo
+  ilkData: IlkData
+  ilks: string[]
+  proxyAddress: string | undefined
+}> {
+  return combineLatest(context$, ilkToToken$).pipe(
+    switchMap(([context, ilkToToken]: [ContextConnected, (ilk: string) => string]) => {
+      const account = context.account
+      const token = ilkToToken(ilk)
+
+      return combineLatestObject({
+        context: context$,
+        txHelpers: txHelpers$,
+        token: of(token),
+        account: of(account),
+        priceInfo: priceInfo$(token),
+        balanceInfo: balanceInfo$(token, account),
+        ilkData: ilkData$(ilk),
+        proxyAddress: proxyAddress$(account),
+
+        ilks: ilks$,
+      })
+    }),
+  )
+}
+
+export function configureMultiplyVaultInputs({
   context$,
   txHelpers$,
   priceInfo$,
@@ -38,7 +96,7 @@ export function createVaultInputs({
   balanceInfo$: (token: string, address: string | undefined) => Observable<BalanceInfo>
   ilkData$: (ilk: string) => Observable<IlkData>
   proxyAddress$: (address: string) => Observable<string | undefined>
-  slippageLimit$?: Observable<UserSettingsState>
+  slippageLimit$: Observable<UserSettingsState>
   ilkToToken$: Observable<(ilk: string) => string>
   ilks$: Observable<string[]>
   ilk: string
@@ -50,26 +108,25 @@ export function createVaultInputs({
   priceInfo: PriceInfo
   balanceInfo: BalanceInfo
   ilkData: IlkData
+  ilks: string[]
   proxyAddress: string | undefined
   slippageLimit: UserSettingsState
 }> {
-  return combineLatest(ilks$, context$, ilkToToken$).pipe(
-    validateIlks(ilk),
-    switchMap(([context, ilkToToken]: [ContextConnected, (ilk: string) => string]) => {
-      const account = context.account
-      const token = ilkToToken(ilk)
+  const vaultInputs$ = configureVaultInputs({
+    context$,
+    txHelpers$,
+    priceInfo$,
+    balanceInfo$,
+    ilkData$,
+    proxyAddress$,
+    ilkToToken$,
+    ilks$,
+    ilk,
+  })
 
-      return combineLatestObject({
-        context: context$,
-        txHelpers: txHelpers$,
-        token: of(token),
-        account: of(account),
-        priceInfo: priceInfo$(token),
-        balanceInfo: balanceInfo$(token, account),
-        ilkData: ilkData$(ilk),
-        proxyAddress: proxyAddress$(account),
-        slippageLimit: slippageLimit$,
-      })
+  return vaultInputs$.pipe(
+    switchMap((inputs) => {
+      return combineLatestObject({ ...inputs, slippageLimit: slippageLimit$ })
     }),
   )
 }

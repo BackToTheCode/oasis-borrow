@@ -10,7 +10,7 @@ import { BalanceInfo, balanceInfoChange$ } from 'features/shared/balanceInfo'
 import { PriceInfo, priceInfoChange$ } from 'features/shared/priceInfo'
 import { slippageChange$, UserSettingsState } from 'features/userSettings/userSettings'
 import { GasEstimationStatus, HasGasEstimation } from 'helpers/form'
-import { createVaultInputs } from 'helpers/vaults/createVaultInputs'
+import { configureMultiplyVaultInputs, validateIlks } from 'helpers/vaults/configureVaultInputs'
 import { curry } from 'lodash'
 import { merge, Observable, of, Subject } from 'rxjs'
 import { first, map, scan, shareReplay, switchMap, tap } from 'rxjs/operators'
@@ -335,7 +335,7 @@ export function createOpenMultiplyVault$({
   slippageLimit$: Observable<UserSettingsState>
   ilk: string
 }): Observable<OpenMultiplyVaultState> {
-  const vaultInputs$ = createVaultInputs({
+  const vaultInputs$ = configureMultiplyVaultInputs({
     context$,
     txHelpers$,
     priceInfo$,
@@ -349,6 +349,7 @@ export function createOpenMultiplyVault$({
   })
 
   return vaultInputs$.pipe(
+    validateIlks(ilk),
     first(),
     switchMap(
       ({
@@ -365,7 +366,7 @@ export function createOpenMultiplyVault$({
         const { slippage } = slippageLimit || {}
         return ((proxyAddress && allowance$(token, account, proxyAddress)) || of(undefined)).pipe(
           first(),
-          switchMap((allowance) => {
+          switchMap((allowance: BigNumber | undefined) => {
             const { change$, change, injectStateOverride } = createStateChangeSubjectAndOverride()
             const totalSteps = calculateInitialTotalSteps(proxyAddress, token, allowance)
 

@@ -7,7 +7,7 @@ import { setAllowance } from 'features/allowance/setAllowance'
 import { BalanceInfo, balanceInfoChange$ } from 'features/shared/balanceInfo'
 import { PriceInfo, priceInfoChange$ } from 'features/shared/priceInfo'
 import { GasEstimationStatus, HasGasEstimation } from 'helpers/form'
-import { createVaultInputs } from 'helpers/vaults/createVaultInputs'
+import { configureVaultInputs, validateIlks } from 'helpers/vaults/configureVaultInputs'
 import { curry } from 'lodash'
 import { merge, Observable, of, Subject } from 'rxjs'
 import { first, map, scan, shareReplay, switchMap } from 'rxjs/operators'
@@ -292,7 +292,7 @@ export function createOpenVault$(
   addGasEstimation$: AddGasEstimationFunction,
   ilk: string,
 ): Observable<OpenVaultState> {
-  const vaultInputs$ = createVaultInputs({
+  const vaultInputs$ = configureVaultInputs({
     context$,
     txHelpers$,
     priceInfo$,
@@ -305,12 +305,13 @@ export function createOpenVault$(
   })
 
   return vaultInputs$.pipe(
+    validateIlks(ilk),
     first(),
     switchMap(
       ({ context, txHelpers, token, account, priceInfo, balanceInfo, ilkData, proxyAddress }) => {
         return ((proxyAddress && allowance$(token, account, proxyAddress)) || of(undefined)).pipe(
           first(),
-          switchMap((allowance: BigNumber | undefined) => {
+          switchMap((allowance: BigNumber) => {
             const { change$, change, injectStateOverride } = createStateChangeSubjectAndOverride()
 
             const totalSteps = calculateInitialTotalSteps(proxyAddress, token, allowance)
