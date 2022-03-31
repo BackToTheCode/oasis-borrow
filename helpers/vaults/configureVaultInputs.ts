@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js'
 import { IlkData } from 'blockchain/ilks'
 import { ContextConnected } from 'blockchain/network'
 import { TxHelpers } from 'components/AppContext'
@@ -31,6 +32,7 @@ export function configureVaultInputs({
   txHelpers$,
   priceInfo$,
   balanceInfo$,
+  allowance$,
   ilkData$,
   proxyAddress$,
   ilkToToken$,
@@ -40,6 +42,7 @@ export function configureVaultInputs({
   connectedContext$: Observable<ContextConnected>
   txHelpers$: Observable<TxHelpers>
   priceInfo$: (token: string) => Observable<PriceInfo>
+  allowance$: (token: string, owner: string, spender: string) => Observable<BigNumber>
   balanceInfo$: (token: string, address: string | undefined) => Observable<BalanceInfo>
   ilkData$: (ilk: string) => Observable<IlkData>
   proxyAddress$: (address: string) => Observable<string | undefined>
@@ -71,10 +74,38 @@ export function configureVaultInputs({
         balanceInfo: balanceInfo$(token, account),
         ilkData: ilkData$(ilk),
         proxyAddress: proxyAddress$(account),
-
         ilks: ilks$,
       })
     }),
+    switchMap(
+      ({
+        context,
+        txHelpers,
+        token,
+        account,
+        priceInfo,
+        balanceInfo,
+        ilkData,
+        proxyAddress,
+        ilks,
+      }) => {
+        const allowance =
+          (proxyAddress && allowance$(token, account, proxyAddress)) || of(undefined)
+
+        return combineLatestObject({
+          context,
+          txHelpers,
+          token,
+          account,
+          priceInfo,
+          balanceInfo,
+          ilkData,
+          proxyAddress,
+          allowance,
+          ilks,
+        })
+      },
+    ),
   )
 }
 
@@ -82,6 +113,7 @@ export function configureMultiplyVaultInputs({
   connectedContext$,
   txHelpers$,
   priceInfo$,
+  allowance$,
   balanceInfo$,
   ilkData$,
   proxyAddress$,
@@ -93,6 +125,7 @@ export function configureMultiplyVaultInputs({
   connectedContext$: Observable<ContextConnected>
   txHelpers$: Observable<TxHelpers>
   priceInfo$: (token: string) => Observable<PriceInfo>
+  allowance$: (token: string, owner: string, spender: string) => Observable<BigNumber>
   balanceInfo$: (token: string, address: string | undefined) => Observable<BalanceInfo>
   ilkData$: (ilk: string) => Observable<IlkData>
   proxyAddress$: (address: string) => Observable<string | undefined>
@@ -119,6 +152,7 @@ export function configureMultiplyVaultInputs({
     balanceInfo$,
     ilkData$,
     proxyAddress$,
+    allowance$,
     ilkToToken$,
     ilks$,
     ilk,

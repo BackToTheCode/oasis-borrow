@@ -299,6 +299,7 @@ export function createOpenVault$({
     balanceInfo$,
     ilkData$,
     proxyAddress$,
+    allowance$,
     ilkToToken$,
     ilks$,
     ilk,
@@ -308,78 +309,83 @@ export function createOpenVault$({
     validateIlk(ilk),
     first(),
     switchMap(
-      ({ context, txHelpers, token, account, priceInfo, balanceInfo, ilkData, proxyAddress }) => {
-        return ((proxyAddress && allowance$(token, account, proxyAddress)) || of(undefined)).pipe(
-          first(),
-          switchMap((allowance: BigNumber) => {
-            const { change$, change, injectStateOverride } = createStateChangeSubjectAndOverride()
+      ({
+        context,
+        txHelpers,
+        token,
+        account,
+        priceInfo,
+        balanceInfo,
+        ilkData,
+        proxyAddress,
+        allowance,
+      }) => {
+        const { change$, change, injectStateOverride } = createStateChangeSubjectAndOverride()
 
-            const totalSteps = calculateInitialTotalSteps(proxyAddress, token, allowance)
+        const totalSteps = calculateInitialTotalSteps(proxyAddress, token, allowance)
 
-            const initialState: OpenVaultState = {
-              ...defaultMutableOpenVaultState,
-              ...defaultOpenVaultStateCalculations,
-              ...defaultOpenVaultConditions,
-              priceInfo,
-              balanceInfo,
-              ilkData,
-              token,
-              account,
-              ilk,
-              proxyAddress,
-              allowance,
-              safeConfirmations: context.safeConfirmations,
-              etherscan: context.etherscan.url,
-              errorMessages: [],
-              warningMessages: [],
-              summary: defaultOpenVaultSummary,
-              totalSteps,
-              currentStep: 1,
-              clear: () => change({ kind: 'clear' }),
-              gasEstimationStatus: GasEstimationStatus.unset,
-              injectStateOverride,
-            }
+        const initialState: OpenVaultState = {
+          ...defaultMutableOpenVaultState,
+          ...defaultOpenVaultStateCalculations,
+          ...defaultOpenVaultConditions,
+          priceInfo,
+          balanceInfo,
+          ilkData,
+          token,
+          account,
+          ilk,
+          proxyAddress,
+          allowance,
+          safeConfirmations: context.safeConfirmations,
+          etherscan: context.etherscan.url,
+          errorMessages: [],
+          warningMessages: [],
+          summary: defaultOpenVaultSummary,
+          totalSteps,
+          currentStep: 1,
+          clear: () => change({ kind: 'clear' }),
+          gasEstimationStatus: GasEstimationStatus.unset,
+          injectStateOverride,
+        }
 
-            const apply = combineApplyChanges<OpenVaultState, OpenVaultChange>(
-              applyOpenVaultInput,
-              applyOpenVaultForm,
-              createApplyOpenVaultTransition<
-                OpenVaultState,
-                MutableOpenVaultState,
-                OpenVaultCalculations,
-                OpenVaultConditions
-              >(
-                defaultMutableOpenVaultState,
-                defaultOpenVaultStateCalculations,
-                defaultOpenVaultConditions,
-              ),
-              applyProxyChanges,
-              applyOpenVaultTransaction,
-              applyAllowanceChanges,
-              applyOpenVaultEnvironment,
-              applyOpenVaultInjectedOverride,
-              applyOpenVaultCalculations,
-              applyOpenVaultStageCategorisation,
-              applyOpenVaultConditions,
-              applyOpenVaultSummary,
-            )
+        const apply = combineApplyChanges<OpenVaultState, OpenVaultChange>(
+          applyOpenVaultInput,
+          applyOpenVaultForm,
+          createApplyOpenVaultTransition<
+            OpenVaultState,
+            MutableOpenVaultState,
+            OpenVaultCalculations,
+            OpenVaultConditions
+          >(
+            defaultMutableOpenVaultState,
+            defaultOpenVaultStateCalculations,
+            defaultOpenVaultConditions,
+          ),
+          applyProxyChanges,
+          applyOpenVaultTransaction,
+          applyAllowanceChanges,
+          applyOpenVaultEnvironment,
+          applyOpenVaultInjectedOverride,
+          applyOpenVaultCalculations,
+          applyOpenVaultStageCategorisation,
+          applyOpenVaultConditions,
+          applyOpenVaultSummary,
+        )
 
-            const environmentChanges$ = merge(
-              priceInfoChange$(priceInfo$, token),
-              balanceInfoChange$(balanceInfo$, token, account),
-              createIlkDataChange$(ilkData$, ilk),
-            )
+        const environmentChanges$ = merge(
+          priceInfoChange$(priceInfo$, token),
+          balanceInfoChange$(balanceInfo$, token, account),
+          createIlkDataChange$(ilkData$, ilk),
+        )
 
-            const connectedProxyAddress$ = proxyAddress$(account)
+        const connectedProxyAddress$ = proxyAddress$(account)
 
-            return merge(change$, environmentChanges$).pipe(
-              scan(apply, initialState),
-              map(validateErrors),
-              map(validateWarnings),
-              switchMap(curry(applyEstimateGas)(addGasEstimation$)),
-              map(curry(addTransitions)(txHelpers, connectedProxyAddress$, change)),
-            )
-          }),
+        return merge(change$, environmentChanges$).pipe(
+          scan(apply, initialState),
+          map(validateErrors),
+          map(validateWarnings),
+          switchMap(curry(applyEstimateGas)(addGasEstimation$)),
+          map(curry(addTransitions)(txHelpers, connectedProxyAddress$, change)),
         )
       },
     ),
