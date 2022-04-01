@@ -57,6 +57,7 @@ export async function getConnector(
         supportedChainIds: Object.values(networksById).map(({ id }) => Number.parseInt(id)),
       })
       const connectorChainId = Number.parseInt((await connector.getChainId()) as string)
+
       if (network !== connectorChainId) {
         alert('Browser ethereum provider and URL network param do not match!')
         throw new Error('Browser ethereum provider and URL network param do not match!')

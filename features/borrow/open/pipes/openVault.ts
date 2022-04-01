@@ -7,9 +7,8 @@ import { BalanceInfo, balanceInfoChange$ } from 'features/shared/balanceInfo'
 import { PriceInfo, priceInfoChange$ } from 'features/shared/priceInfo'
 import { CreateOpenVault } from 'features/types/vaults/CreateOpenVault'
 import { GasEstimationStatus, HasGasEstimation } from 'helpers/form'
-import { configureVaultInputs, validateIlk } from 'helpers/vaults/configureVaultInputs'
 import { curry } from 'lodash'
-import { merge, Observable, of, Subject } from 'rxjs'
+import { merge, Observable, Subject } from 'rxjs'
 import { first, map, scan, shareReplay, switchMap } from 'rxjs/operators'
 
 import { combineApplyChanges } from '../../../../helpers/pipelines/combineApply'
@@ -23,6 +22,7 @@ import { VaultErrorMessage } from '../../../form/errorMessagesHandler'
 import { VaultWarningMessage } from '../../../form/warningMessagesHandler'
 import { createProxy } from '../../../proxy/createProxy'
 import { applyProxyChanges, ProxyChanges } from '../../../proxy/proxy'
+import { configureVaultInputs, validateIlk } from '../../../shared/configureVaultInputs'
 import { OpenVaultTransactionChange } from '../../../shared/transactions'
 import {
   createApplyOpenVaultTransition,

@@ -11,9 +11,8 @@ import { PriceInfo, priceInfoChange$ } from 'features/shared/priceInfo'
 import { CreateOpenMultiplyVault } from 'features/types/vaults/CreateOpenVault'
 import { slippageChange$ } from 'features/userSettings/userSettings'
 import { GasEstimationStatus, HasGasEstimation } from 'helpers/form'
-import { configureMultiplyVaultInputs, validateIlk } from 'helpers/vaults/configureVaultInputs'
 import { curry } from 'lodash'
-import { merge, Observable, of, Subject } from 'rxjs'
+import { merge, Observable, Subject } from 'rxjs'
 import { first, map, scan, shareReplay, switchMap, tap } from 'rxjs/operators'
 
 import { combineApplyChanges } from '../../../../helpers/pipelines/combineApply'
@@ -26,6 +25,7 @@ import {
 import { VaultErrorMessage } from '../../../form/errorMessagesHandler'
 import { VaultWarningMessage } from '../../../form/warningMessagesHandler'
 import { applyProxyChanges, ProxyChanges } from '../../../proxy/proxy'
+import { configureMultiplyVaultInputs, validateIlk } from '../../../shared/configureVaultInputs'
 import { OpenVaultTransactionChange } from '../../../shared/transactions'
 import {
   createApplyOpenVaultTransition,
