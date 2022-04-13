@@ -55,15 +55,9 @@ type ConfigureMultiplyVaultInputs = ConfigureBaseVaultInputs & {
   slippageLimit$: Observable<UserSettingsState>
 }
 
-// type ConfigureGuniVaultInputs = ConfigureBaseVaultInputs & {
-//   psmExchangeQuote$: (
-//     token: string,
-//     slippage: BigNumber,
-//     amount: BigNumber,
-//     action: ExchangeAction,
-//     exchangeType: ExchangeType,
-//   ) => createExchangeQuote$(context$, 'PSM', token, slippage, amount, action, exchangeType)
-// }
+type ConfigureGuniVaultInputs = ConfigureBaseVaultInputs & {
+  slippageLimit$: Observable<UserSettingsState>
+}
 
 type BaseVaultInputsReturn = {
   context: ContextConnected
@@ -84,7 +78,7 @@ type BorrowVaultInputsReturn = BaseVaultInputsReturn & {
 
 type MultiplyVaultInputsReturn = BaseVaultInputsReturn & { slippageLimit: UserSettingsState }
 
-type GuniVaultInputsReturn = BaseVaultInputsReturn
+type GuniVaultInputsReturn = BaseVaultInputsReturn & { slippageLimit: UserSettingsState }
 
 export function configureBaseVaultInputs({
   connectedContext$,
@@ -236,7 +230,7 @@ export function configureGuniVaultInputs({
   ilkToToken$,
   ilks$,
   ilk,
-}: ConfigureMultiplyVaultInputs) {
+}: ConfigureGuniVaultInputs): Observable<GuniVaultInputsReturn> {
   const vaultInputs$ = configureBaseVaultInputs({
     connectedContext$,
     txHelpers$,
