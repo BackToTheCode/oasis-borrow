@@ -9,7 +9,7 @@ import { WithArrow } from 'components/WithArrow'
 import { AssetPageContent } from 'content/assets'
 import { AppSpinner, WithLoadingIndicator } from 'helpers/AppSpinner'
 import { WithErrorHandler } from 'helpers/errorHandlers/WithErrorHandler'
-import { useObservableWithError } from 'helpers/observableHook'
+import { useObservable } from 'helpers/observableHook'
 import { ProductCardData } from 'helpers/productCards'
 import { useTranslation } from 'next-i18next'
 import React from 'react'
@@ -36,7 +36,8 @@ function TabContent(props: {
   const filteredCards = props.ilks
     .map((ilk) => props.productCardsData.find((card) => card.ilk === ilk))
     .filter(
-      (cardData: ProductCardData | undefined): cardData is ProductCardData => cardData !== null,
+      (cardData: ProductCardData | undefined): cardData is ProductCardData =>
+        cardData !== null && cardData !== undefined,
     )
 
   return (
@@ -50,9 +51,7 @@ function TabContent(props: {
 export function AssetView({ content }: { content: AssetPageContent }) {
   const { t } = useTranslation()
   const { productCardsData$ } = useAppContext()
-  const { error: productCardsDataError, value: productCardsDataValue } = useObservableWithError(
-    productCardsData$,
-  )
+  const [productCardsData, productCardsDataError] = useObservable(productCardsData$)
   const enabled = useFeatureToggle('EarnProduct')
 
   const tabs = (productCardsData: ProductCardData[]) => {
@@ -123,7 +122,7 @@ export function AssetView({ content }: { content: AssetPageContent }) {
       </Flex>
       <Grid sx={{ flex: 1, position: 'relative', mt: 5, mb: '184px' }}>
         <WithErrorHandler error={[productCardsDataError]}>
-          <WithLoadingIndicator value={[productCardsDataValue]} customLoader={<Loader />}>
+          <WithLoadingIndicator value={[productCardsData]} customLoader={<Loader />}>
             {([productCardsData]) => {
               return (
                 <TabSwitcher

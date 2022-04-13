@@ -23,6 +23,10 @@ import { interpolate } from '../../helpers/interpolate'
 import { splitEvents, VaultHistoryEvent } from './vaultHistory'
 
 function getHistoryEventTranslation(t: TFunction, event: VaultHistoryEvent) {
+  if ('triggerId' in event) {
+    return `${t(`history.${event.kind}`)} ${t(`triggers.${event.eventType}`)}`
+  }
+
   return t(`history.${event.kind.toLowerCase()}`, {
     transferTo: 'transferTo' in event && formatAddress(event.transferTo),
     transferFrom: 'transferFrom' in event && formatAddress(event.transferFrom),
@@ -104,6 +108,12 @@ function MultiplyHistoryEventDetails(event: VaultHistoryEvent) {
         {event.kind === 'INCREASE_MULTIPLE' && (
           <MultiplyHistoryEventDetailsItem label={t('history.bought')}>
             {'bought' in event && formatCryptoBalance(event.bought)} {event.token}
+          </MultiplyHistoryEventDetailsItem>
+        )}
+        {event.kind === 'INCREASE_MULTIPLE' && (
+          <MultiplyHistoryEventDetailsItem label={t('history.deposited')}>
+            {'depositCollateral' in event && formatCryptoBalance(event.depositCollateral)}
+            {event.token}
           </MultiplyHistoryEventDetailsItem>
         )}
         {(event.kind === 'DECREASE_MULTIPLE' || closeEvent) && (
@@ -308,7 +318,7 @@ function VaultHistoryItem({
 
 export function VaultHistoryView({ vaultHistory }: { vaultHistory: VaultHistoryEvent[] }) {
   const { context$ } = useAppContext()
-  const context = useObservable(context$)
+  const [context] = useObservable(context$)
   const { t } = useTranslation()
 
   const spitedEvents = flatten(vaultHistory.map(splitEvents))

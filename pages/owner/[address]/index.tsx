@@ -6,7 +6,7 @@ import { WithTermsOfService } from 'features/termsOfService/TermsOfService'
 import { VaultsOverviewView } from 'features/vaultsOverview/VaultsOverviewView'
 import { WithLoadingIndicator } from 'helpers/AppSpinner'
 import { WithErrorHandler } from 'helpers/errorHandlers/WithErrorHandler'
-import { useObservableWithError } from 'helpers/observableHook'
+import { useObservable } from 'helpers/observableHook'
 import { GetServerSidePropsContext } from 'next'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import React from 'react'
@@ -25,12 +25,12 @@ export async function getServerSideProps(ctx: GetServerSidePropsContext) {
 function Summary({ address }: { address: string }) {
   const { vaultsOverview$, context$ } = useAppContext()
   const checksumAddress = getAddress(address.toLocaleLowerCase())
-  const vaultsOverviewWithError = useObservableWithError(vaultsOverview$(checksumAddress))
-  const contextWithError = useObservableWithError(context$)
+  const [vaultsOverview, vaultsOverviewError] = useObservable(vaultsOverview$(checksumAddress))
+  const [context, contextError] = useObservable(context$)
 
   return (
-    <WithErrorHandler error={[vaultsOverviewWithError.error, contextWithError.error]}>
-      <WithLoadingIndicator value={[vaultsOverviewWithError.value, contextWithError.value]}>
+    <WithErrorHandler error={[vaultsOverviewError, contextError]}>
+      <WithLoadingIndicator value={[vaultsOverview, context]}>
         {([vaultsOverview, context]) => (
           <VaultsOverviewView
             vaultsOverview={vaultsOverview}
@@ -43,7 +43,7 @@ function Summary({ address }: { address: string }) {
   )
 }
 
-export default function VaultsSummary({ address }: { address: string }) {
+function VaultsSummary({ address }: { address: string }) {
   return address ? (
     <WithConnection>
       <WithTermsOfService>
@@ -55,3 +55,5 @@ export default function VaultsSummary({ address }: { address: string }) {
 }
 
 VaultsSummary.layout = AppLayout
+
+export default VaultsSummary

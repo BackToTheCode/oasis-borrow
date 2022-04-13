@@ -1,4 +1,5 @@
 import BigNumber from 'bignumber.js'
+import { ProxyActionsSmartContractAdapterInterface } from 'blockchain/calls/proxyActions/adapters/ProxyActionsSmartContractAdapterInterface'
 import { IlkData } from 'blockchain/ilks'
 import { ContextConnected } from 'blockchain/network'
 import { TxHelpers } from 'components/AppContext'
@@ -38,6 +39,7 @@ type VaultInputsReturn = {
   ilks: string[]
   allowance: BigNumber | undefined
   proxyAddress: string | undefined
+  proxyActionsAdapter: ProxyActionsSmartContractAdapterInterface
 }
 
 export function configureVaultInputs({
@@ -48,6 +50,7 @@ export function configureVaultInputs({
   allowance$,
   ilkData$,
   proxyAddress$,
+  proxyActionsAdapterResolver$,
   ilkToToken$,
   ilks$,
   ilk,
@@ -59,7 +62,12 @@ export function configureVaultInputs({
   balanceInfo$: (token: string, address: string | undefined) => Observable<BalanceInfo>
   ilkData$: (ilk: string) => Observable<IlkData>
   proxyAddress$: (address: string) => Observable<string | undefined>
-  ilkToToken$: Observable<(ilk: string) => string>
+  proxyActionsAdapterResolver$: ({
+    ilk,
+  }: {
+    ilk: string
+  }) => Observable<ProxyActionsSmartContractAdapterInterface>
+  ilkToToken$: (ilk: string) => Observable<string>
   ilks$: Observable<string[]>
   ilk: string
 }): Observable<VaultInputsReturn> {
@@ -77,6 +85,7 @@ export function configureVaultInputs({
         balanceInfo: balanceInfo$(token, account),
         ilkData: ilkData$(ilk),
         proxyAddress: proxyAddress$(account),
+        proxyActionsAdapterResolver: proxyActionsAdapterResolver$({ ilk }),
         ilks: ilks$,
       })
     }),
@@ -90,6 +99,7 @@ export function configureVaultInputs({
         balanceInfo,
         ilkData,
         proxyAddress,
+        proxyActionsAdapter,
         ilks,
       }) => {
         const allowance =
@@ -104,6 +114,7 @@ export function configureVaultInputs({
           balanceInfo,
           ilkData,
           proxyAddress,
+          proxyActionsAdapter,
           allowance,
           ilks,
         })
@@ -120,6 +131,7 @@ export function configureMultiplyVaultInputs({
   balanceInfo$,
   ilkData$,
   proxyAddress$,
+  proxyActionsAdapterResolver$,
   slippageLimit$,
   ilkToToken$,
   ilks$,
@@ -132,6 +144,11 @@ export function configureMultiplyVaultInputs({
   balanceInfo$: (token: string, address: string | undefined) => Observable<BalanceInfo>
   ilkData$: (ilk: string) => Observable<IlkData>
   proxyAddress$: (address: string) => Observable<string | undefined>
+  proxyActionsAdapterResolver$: ({
+    ilk,
+  }: {
+    ilk: string
+  }) => Observable<ProxyActionsSmartContractAdapterInterface>
   slippageLimit$: Observable<UserSettingsState>
   ilkToToken$: Observable<(ilk: string) => string>
   ilks$: Observable<string[]>
@@ -144,6 +161,7 @@ export function configureMultiplyVaultInputs({
     balanceInfo$,
     ilkData$,
     proxyAddress$,
+    proxyActionsAdapterResolver$,
     allowance$,
     ilkToToken$,
     ilks$,

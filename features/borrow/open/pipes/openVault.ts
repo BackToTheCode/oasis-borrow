@@ -11,6 +11,10 @@ import { curry } from 'lodash'
 import { merge, Observable, Subject } from 'rxjs'
 import { first, map, scan, shareReplay, switchMap } from 'rxjs/operators'
 
+import {
+  vaultActionsLogic,
+  VaultActionsLogicInterface,
+} from '../../../../blockchain/calls/proxyActions/vaultActionsLogic'
 import { combineApplyChanges } from '../../../../helpers/pipelines/combineApply'
 import { TxError } from '../../../../helpers/types'
 import {
@@ -158,6 +162,7 @@ export type OpenVaultState = MutableOpenVaultState &
 
 function addTransitions(
   txHelpers: TxHelpers,
+  vaultActions: VaultActionsLogicInterface,
   proxyAddress$: Observable<string | undefined>,
   change: (ch: OpenVaultChange) => void,
   state: OpenVaultState,
@@ -233,7 +238,7 @@ function addTransitions(
   if (state.stage === 'txWaitingForConfirmation' || state.stage === 'txFailure') {
     return {
       ...state,
-      progress: () => openVault(txHelpers, change, state),
+      progress: () => openVault(txHelpers, vaultActions, change, state),
       regress: () => change({ kind: 'backToEditing' }),
     }
   }
@@ -290,6 +295,7 @@ export function createOpenVault$({
   ilkData$,
   ilkToToken$,
   addGasEstimation$,
+  proxyActionsAdapterResolver$,
   ilk,
 }: CreateOpenVault): Observable<OpenVaultState> {
   const vaultInputs$ = configureVaultInputs({
@@ -301,6 +307,7 @@ export function createOpenVault$({
     proxyAddress$,
     allowance$,
     ilkToToken$,
+    proxyActionsAdapterResolver$,
     ilks$,
     ilk,
   })
@@ -318,8 +325,10 @@ export function createOpenVault$({
         balanceInfo,
         ilkData,
         proxyAddress,
+        proxyActionsAdapter,
         allowance,
       }) => {
+        const vaultActions = vaultActionsLogic(proxyActionsAdapter)
         const { change$, change, injectStateOverride } = createStateChangeSubjectAndOverride()
 
         const totalSteps = calculateInitialTotalSteps(proxyAddress, token, allowance)
@@ -384,8 +393,8 @@ export function createOpenVault$({
           scan(apply, initialState),
           map(validateErrors),
           map(validateWarnings),
-          switchMap(curry(applyEstimateGas)(addGasEstimation$)),
-          map(curry(addTransitions)(txHelpers, connectedProxyAddress$, change)),
+          switchMap(curry(applyEstimateGas)(addGasEstimation$, vaultActions)),
+          map(curry(addTransitions)(txHelpers, vaultActions, connectedProxyAddress$, change)),
         )
       },
     ),

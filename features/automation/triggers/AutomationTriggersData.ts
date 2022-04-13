@@ -5,9 +5,11 @@ import { Vault } from 'blockchain/vaults'
 import { GraphQLClient } from 'graphql-request'
 import { List } from 'lodash'
 import { Observable } from 'rxjs'
-import { distinctUntilChanged, mergeMap, shareReplay, withLatestFrom } from 'rxjs/operators'
+import { distinctUntilChanged, map, mergeMap, shareReplay, withLatestFrom } from 'rxjs/operators'
 
+import { useFeatureToggle } from '../../../helpers/useFeatureToggle'
 import { getAllActiveTriggers } from '../common/service/allActiveTriggers'
+import { extractStopLossData, StopLossTriggerData } from '../common/StopLossTriggerDataExtractor'
 
 // TODO - ŁW - Implement tests for this file
 
@@ -26,6 +28,7 @@ async function loadTriggerDataFromCache(vaultId: number, cacheApi: string): Prom
 
 export interface TriggerRecord {
   triggerId: number
+  commandAddress: string
   executionParams: string // bytes triggerData from TriggerAdded event
 }
 
@@ -43,15 +46,33 @@ export function createAutomationTriggersData(
   return onEveryBlock$.pipe(
     withLatestFrom(context$, vauit$(id)),
     mergeMap(([, , vault]) => {
-      const networkConfig = networksById[(vault as Vault).chainId]
-      return loadTriggerDataFromCache(
-        (vault as Vault).id.toNumber() as number,
-        networkConfig.cacheApi,
-      )
+      const networkConfig = networksById[vault.chainId]
+      return loadTriggerDataFromCache(vault.id.toNumber(), networkConfig.cacheApi)
     }),
     distinctUntilChanged((s1, s2) => {
       return JSON.stringify(s1) === JSON.stringify(s2)
     }),
     shareReplay(1),
   )
+}
+
+export function createStopLossDataChange$(
+  automationTriggersData$: (id: BigNumber) => Observable<TriggersData>,
+  id: BigNumber,
+) {
+  const automationEnabled = useFeatureToggle('Automation')
+
+  return automationEnabled
+    ? automationTriggersData$(id).pipe(
+        map((triggers) => ({
+          kind: 'stopLossData',
+          stopLossData: extractStopLossData(triggers),
+        })),
+      )
+    : []
+}
+
+export interface StopLossChange {
+  kind: 'stopLossData'
+  stopLossData: StopLossTriggerData
 }

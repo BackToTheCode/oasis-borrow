@@ -16,6 +16,10 @@ import {
   TransactionDef,
 } from 'blockchain/calls/callsHelpers'
 import { cdpManagerIlks, cdpManagerOwner, cdpManagerUrns } from 'blockchain/calls/cdpManager'
+import { cdpRegistryCdps, cdpRegistryOwns } from 'blockchain/calls/cdpRegistry'
+import { charterNib, charterPeace, charterUline, charterUrnProxy } from 'blockchain/calls/charter'
+import { getCdps } from 'blockchain/calls/getCdps'
+import { createIlkToToken$ } from 'blockchain/calls/ilkToToken'
 import { pipHop, pipPeek, pipPeep, pipZzz } from 'blockchain/calls/osm'
 import {
   CreateDsProxyData,
@@ -26,18 +30,17 @@ import {
 import {
   CloseGuniMultiplyData,
   CloseVaultData,
-  DepositAndGenerateData,
   MultiplyAdjustData,
-  OpenData,
   OpenGuniMultiplyData,
   OpenMultiplyData,
   ReclaimData,
-  WithdrawAndPaybackData,
-  withdrawPaybackDepositGenerateLogicFactory,
 } from 'blockchain/calls/proxyActions/proxyActions'
 import { vatGem, vatIlk, vatUrns } from 'blockchain/calls/vat'
+import { createVaultResolver$ } from 'blockchain/calls/vaultResolver'
 import { resolveENSName$ } from 'blockchain/ens'
+import { createGetRegistryCdps$ } from 'blockchain/getRegistryCdps'
 import { createIlkData$, createIlkDataList$, createIlks$ } from 'blockchain/ilks'
+import { createInstiVault$, InstiVault } from 'blockchain/instiVault'
 import {
   createGasPrice$,
   createOraclePriceData$,
@@ -50,12 +53,39 @@ import {
   createBalance$,
   createCollateralTokens$,
 } from 'blockchain/tokens'
-import { createController$, createVault$, createVaults$ } from 'blockchain/vaults'
+import { createStandardCdps$, createVault$, createVaults$, Vault } from 'blockchain/vaults'
 import { pluginDevModeHelpers } from 'components/devModeHelpers'
 import { createAccountData } from 'features/account/AccountData'
+import {
+  ADD_FORM_CHANGE,
+  AddFormChange,
+  AddFormChangeAction,
+  formChangeReducer,
+} from 'features/automation/common/UITypes/AddFormChange'
+import {
+  PROTECTION_MODE_CHANGE_SUBJECT,
+  ProtectionModeChange,
+  ProtectionModeChangeAction,
+  protectionModeChangeReducer,
+} from 'features/automation/common/UITypes/ProtectionFormModeChange'
+import {
+  REMOVE_FORM_CHANGE,
+  RemoveFormChange,
+  RemoveFormChangeAction,
+  removeFormReducer,
+} from 'features/automation/common/UITypes/RemoveFormChange'
+import {
+  TAB_CHANGE_SUBJECT,
+  TabChange,
+  TabChangeAction,
+  tabChangeReducer,
+} from 'features/automation/common/UITypes/TabChange'
 import { createAutomationTriggersData } from 'features/automation/triggers/AutomationTriggersData'
 import { createVaultsBanners$ } from 'features/banners/vaultsBanners'
-import { createManageVault$ } from 'features/borrow/manage/pipes/manageVault'
+import {
+  createManageVault$,
+  ManageStandardBorrowVaultState,
+} from 'features/borrow/manage/pipes/manageVault'
 import { createOpenVault$ } from 'features/borrow/open/pipes/openVault'
 import { createCollateralPrices$ } from 'features/collateralPrices/collateralPrices'
 import { currentContent } from 'features/content'
@@ -78,14 +108,12 @@ import {
   checkUserSettingsLocalStorage$,
   saveUserSettingsLocalStorage$,
 } from 'features/userSettings/userSettingsLocal'
-import { createVaultHistory$ } from 'features/vaultHistory/vaultHistory'
-import { createVaultMultiplyHistory$ } from 'features/vaultHistory/vaultMultiplyHistory'
 import { createVaultsOverview$ } from 'features/vaultsOverview/vaultsOverview'
 import { isEqual, mapValues, memoize } from 'lodash'
-import { curry } from 'ramda'
 import { combineLatest, Observable, of, Subject } from 'rxjs'
 import { distinctUntilChanged, filter, map, mergeMap, shareReplay, switchMap } from 'rxjs/operators'
 
+import { cropperUrnProxy } from '../blockchain/calls/cropper'
 import { dogIlk } from '../blockchain/calls/dog'
 import {
   ApproveData,
@@ -95,9 +123,14 @@ import {
 } from '../blockchain/calls/erc20'
 import { jugIlk } from '../blockchain/calls/jug'
 import { observe } from '../blockchain/calls/observe'
-import { StandardDssProxyActionsContractWrapper } from '../blockchain/calls/proxyActions/standardDssProxyActionsContractWrapper'
+import {
+  DepositAndGenerateData,
+  OpenData,
+  WithdrawAndPaybackData,
+} from '../blockchain/calls/proxyActions/adapters/ProxyActionsSmartContractAdapterInterface'
+import { proxyActionsAdapterResolver$ } from '../blockchain/calls/proxyActions/proxyActionsAdapterResolver'
 import { spotIlk } from '../blockchain/calls/spot'
-import { networksById } from '../blockchain/config'
+import { charterIlks, cropJoinIlks, networksById } from '../blockchain/config'
 import {
   ContextConnected,
   createAccount$,
@@ -109,6 +142,11 @@ import {
 } from '../blockchain/network'
 import { createTransactionManager } from '../features/account/transactionManager'
 import {
+  InstitutionalBorrowManageAdapter,
+  ManageInstiVaultState,
+} from '../features/borrow/manage/pipes/adapters/institutionalBorrowManageAdapter'
+import { StandardBorrowManageAdapter } from '../features/borrow/manage/pipes/adapters/standardBorrowManageAdapter'
+import {
   getTotalSupply,
   getUnderlyingBalances,
 } from '../features/earn/guni/manage/pipes/guniActionsCalls'
@@ -117,11 +155,15 @@ import {
   getGuniMintAmount,
   getToken1Balance,
 } from '../features/earn/guni/open/pipes/guniActionsCalls'
+import { VaultType } from '../features/generalManageVault/vaultType'
 import { BalanceInfo, createBalanceInfo$ } from '../features/shared/balanceInfo'
+import { createCheckOasisCDPType$ } from '../features/shared/checkOasisCDPType'
 import { jwtAuthSetupToken$ } from '../features/termsOfService/jwt'
 import { createTermsAcceptance$ } from '../features/termsOfService/termsAcceptance'
+import { createVaultHistory$ } from '../features/vaultHistory/vaultHistory'
 import { doGasEstimation, HasGasEstimation } from '../helpers/form'
 import { createProductCardsData$ } from '../helpers/productCards'
+import curry from 'ramda/src/curry'
 
 export type TxData =
   | OpenData
@@ -159,8 +201,6 @@ export type AddGasEstimationFunction = <S extends HasGasEstimation>(
 
 export type TxHelpers$ = Observable<TxHelpers>
 
-export const ilkToToken$ = of((ilk: string) => ilk.split('-')[0])
-
 function createTxHelpers$(
   context$: Observable<ContextConnected>,
   send: SendFunction<TxData>,
@@ -178,32 +218,51 @@ function createTxHelpers$(
   )
 }
 
-/* TODO: Try changing to:
+export type SupportedUIChangeType =
+  | AddFormChange
+  | RemoveFormChange
+  | TabChange
+  | ProtectionModeChange
 
-export type UiChangesTypes = {
-  AdjustSlForm: AddFormChange
+export type LegalUiChanges = {
+  AddFormChange: AddFormChangeAction
+  RemoveFormChange: RemoveFormChangeAction
+  TabChange: TabChangeAction
+  ProtectionModeChange: ProtectionModeChangeAction
 }
 
 export type UIChanges = {
-  subscribe: <T extends keyof UiChangesTypes>(sub: T) => Observable<UiChangesTypes[T]>
-  publish: <T extends keyof UiChangesTypes>(sub: T, event: UiChangesTypes[T]) => void
+  subscribe: <T extends SupportedUIChangeType>(sub: string) => Observable<T>
+  publish: <K extends LegalUiChanges[keyof LegalUiChanges]>(sub: string, event: K) => void
+  lastPayload: <T extends SupportedUIChangeType>(sub: string) => T
+  clear: (sub: string) => void
+  configureSubject: <
+    T extends SupportedUIChangeType,
+    K extends LegalUiChanges[keyof LegalUiChanges]
+  >(
+    subject: string,
+    reducer: (prev: T, event: K) => T,
+  ) => void
 }
 
-*/
+export type UIReducer = (prev: any, event: any) => any
 
-export type UIChanges = {
-  subscribe: <T>(sub: string) => Observable<T>
-  publish: <T>(sub: string, event: T) => void
+export type ReducersMap = {
+  [key: string]: UIReducer
 }
 
 function createUIChangesSubject(): UIChanges {
+  const latest: any = {}
+
+  const reducers: ReducersMap = {} //TODO: Is there a way to strongly type this ?
+
   interface PublisherRecord {
     subjectName: string
-    payload: any
+    payload: SupportedUIChangeType
   }
   const commonSubject = new Subject<PublisherRecord>()
 
-  function subscribe<T>(subjectName: string): Observable<T> {
+  function subscribe<T extends SupportedUIChangeType>(subjectName: string): Observable<T> {
     return commonSubject.pipe(
       filter((x) => x.subjectName === subjectName),
       map((x) => x.payload as T),
@@ -211,17 +270,51 @@ function createUIChangesSubject(): UIChanges {
     )
   }
 
-  function publish<T>(subjectName: string, event: T) {
+  function publish<K extends LegalUiChanges[keyof LegalUiChanges]>(subjectName: string, event: K) {
+    const accumulatedEvent = reducers.hasOwnProperty(subjectName)
+      ? reducers[subjectName](lastPayload(subjectName) || {}, event)
+      : lastPayload(subjectName)
+    latest[subjectName] = accumulatedEvent
     commonSubject.next({
       subjectName,
-      payload: event,
+      payload: accumulatedEvent,
     })
+  }
+
+  function lastPayload<T>(subject: string): T {
+    const val: T = latest[subject]
+    return val
+  }
+
+  function clear(subject: string): any {
+    delete latest[subject]
+  }
+
+  function configureSubject<
+    T extends SupportedUIChangeType,
+    K extends LegalUiChanges[keyof LegalUiChanges]
+  >(subject: string, reducer: (prev: T, event: K) => T): void {
+    reducers[subject] = reducer
   }
 
   return {
     subscribe,
     publish,
+    lastPayload,
+    clear,
+    configureSubject,
   }
+}
+
+function initializeUIChanges() {
+  const uiChangesSubject = createUIChangesSubject()
+
+  uiChangesSubject.configureSubject(ADD_FORM_CHANGE, formChangeReducer)
+  uiChangesSubject.configureSubject(REMOVE_FORM_CHANGE, removeFormReducer)
+  uiChangesSubject.configureSubject(TAB_CHANGE_SUBJECT, tabChangeReducer)
+  uiChangesSubject.configureSubject(PROTECTION_MODE_CHANGE_SUBJECT, protectionModeChangeReducer)
+
+  return uiChangesSubject
 }
 
 export function setupAppContext() {
@@ -290,6 +383,8 @@ export function setupAppContext() {
   const cdpManagerUrns$ = observe(onEveryBlock$, context$, cdpManagerUrns, bigNumberTostring)
   const cdpManagerIlks$ = observe(onEveryBlock$, context$, cdpManagerIlks, bigNumberTostring)
   const cdpManagerOwner$ = observe(onEveryBlock$, context$, cdpManagerOwner, bigNumberTostring)
+  const cdpRegistryOwns$ = observe(onEveryBlock$, context$, cdpRegistryOwns)
+  const cdpRegistryCdps$ = observe(onEveryBlock$, context$, cdpRegistryCdps)
   const vatIlks$ = observe(onEveryBlock$, context$, vatIlk)
   const vatUrns$ = observe(onEveryBlock$, context$, vatUrns, ilkUrnAddressToString)
   const vatGem$ = observe(onEveryBlock$, context$, vatGem, ilkUrnAddressToString)
@@ -297,10 +392,25 @@ export function setupAppContext() {
   const jugIlks$ = observe(onEveryBlock$, context$, jugIlk)
   const dogIlks$ = observe(onEveryBlock$, context$, dogIlk)
 
+  const charterNib$ = observe(onEveryBlock$, context$, charterNib)
+  const charterPeace$ = observe(onEveryBlock$, context$, charterPeace)
+  const charterUline$ = observe(onEveryBlock$, context$, charterUline)
+  const charterUrnProxy$ = observe(onEveryBlock$, context$, charterUrnProxy)
+
+  const cropperUrnProxy$ = observe(onEveryBlock$, context$, cropperUrnProxy)
+
   const pipZzz$ = observe(onEveryBlock$, context$, pipZzz)
   const pipHop$ = observe(onEveryBlock$, context$, pipHop)
   const pipPeek$ = observe(onEveryBlock$, oracleContext$, pipPeek)
   const pipPeep$ = observe(onEveryBlock$, oracleContext$, pipPeep)
+
+  const getCdps$ = observe(onEveryBlock$, context$, getCdps)
+
+  const charter = {
+    nib$: (args: { ilk: string; usr: string }) => charterNib$(args),
+    peace$: (args: { ilk: string; usr: string }) => charterPeace$(args),
+    uline$: (args: { ilk: string; usr: string }) => charterUline$(args),
+  }
 
   const oraclePriceData$ = memoize(
     curry(createOraclePriceData$)(context$, pipPeek$, pipPeep$, pipZzz$, pipHop$),
@@ -316,26 +426,50 @@ export function setupAppContext() {
   const tokenAllowance$ = observe(onEveryBlock$, context$, tokenAllowance)
   const allowance$ = curry(createAllowance$)(context$, tokenAllowance$)
 
+  const ilkToToken$ = curry(createIlkToToken$)(context$)
+
   const ilkData$ = memoize(
     curry(createIlkData$)(vatIlks$, spotIlks$, jugIlks$, dogIlks$, ilkToToken$),
   )
 
-  const controller$ = memoize(
-    curry(createController$)(proxyOwner$, cdpManagerOwner$),
-    bigNumberTostring,
+  const charterCdps$ = memoize(
+    curry(createGetRegistryCdps$)(
+      onEveryBlock$,
+      context$,
+      cdpRegistryCdps$,
+      proxyAddress$,
+      charterIlks,
+    ),
+  )
+  const cropJoinCdps$ = memoize(
+    curry(createGetRegistryCdps$)(
+      onEveryBlock$,
+      context$,
+      cdpRegistryCdps$,
+      proxyAddress$,
+      cropJoinIlks,
+    ),
+  )
+  const standardCdps$ = memoize(curry(createStandardCdps$)(proxyAddress$, getCdps$))
+
+  const urnResolver$ = curry(createVaultResolver$)(
+    cdpManagerIlks$,
+    cdpManagerUrns$,
+    charterUrnProxy$,
+    cropperUrnProxy$,
+    cdpRegistryOwns$,
+    cdpManagerOwner$,
+    proxyOwner$,
   )
 
   const vault$ = memoize(
     (id: BigNumber) =>
       createVault$(
-        cdpManagerUrns$,
-        cdpManagerIlks$,
-        cdpManagerOwner$,
+        urnResolver$,
         vatUrns$,
         vatGem$,
         ilkData$,
         oraclePriceData$,
-        controller$,
         ilkToToken$,
         context$,
         id,
@@ -343,14 +477,30 @@ export function setupAppContext() {
     bigNumberTostring,
   )
 
-  const vaultHistory$ = memoize(curry(createVaultHistory$)(context$, onEveryBlock$, vault$))
-  const vaultMultiplyHistory$ = memoize(
-    curry(createVaultMultiplyHistory$)(context$, onEveryBlock$, vault$),
+  const instiVault$ = memoize(
+    curry(createInstiVault$)(
+      urnResolver$,
+      vatUrns$,
+      vatGem$,
+      ilkData$,
+      oraclePriceData$,
+      ilkToToken$,
+      context$,
+      charter,
+    ),
   )
+
+  const vaultHistory$ = memoize(curry(createVaultHistory$)(context$, onEveryBlock$, vault$))
 
   pluginDevModeHelpers(txHelpers$, connectedContext$, proxyAddress$)
 
-  const vaults$ = memoize(curry(createVaults$)(onEveryBlock$, context$, proxyAddress$, vault$))
+  const vaults$ = memoize(
+    curry(createVaults$)(onEveryBlock$, vault$, context$, [
+      charterCdps$,
+      cropJoinCdps$,
+      standardCdps$,
+    ]),
+  )
 
   const ilks$ = createIlks$(context$)
 
@@ -390,6 +540,7 @@ export function setupAppContext() {
       ilkData$,
       ilkToToken$,
       addGasEstimation$,
+      proxyActionsAdapterResolver$,
       ilk,
     }),
   )
@@ -461,7 +612,7 @@ export function setupAppContext() {
 
   const manageVault$ = memoize(
     (id: BigNumber) =>
-      createManageVault$(
+      createManageVault$<Vault, ManageStandardBorrowVaultState>(
         context$,
         txHelpers$,
         proxyAddress$,
@@ -472,7 +623,32 @@ export function setupAppContext() {
         vault$,
         saveVaultUsingApi$,
         addGasEstimation$,
-        withdrawPaybackDepositGenerateLogicFactory(StandardDssProxyActionsContractWrapper),
+        vaultHistory$,
+        proxyActionsAdapterResolver$,
+        StandardBorrowManageAdapter,
+        automationTriggersData$,
+        id,
+      ),
+    bigNumberTostring,
+  )
+
+  const manageInstiVault$ = memoize(
+    (id: BigNumber) =>
+      createManageVault$<InstiVault, ManageInstiVaultState>(
+        context$,
+        txHelpers$,
+        proxyAddress$,
+        allowance$,
+        priceInfo$,
+        balanceInfo$,
+        ilkData$,
+        instiVault$,
+        saveVaultUsingApi$,
+        addGasEstimation$,
+        vaultHistory$,
+        proxyActionsAdapterResolver$,
+        InstitutionalBorrowManageAdapter,
+        automationTriggersData$,
         id,
       ),
     bigNumberTostring,
@@ -492,8 +668,9 @@ export function setupAppContext() {
         exchangeQuote$,
         addGasEstimation$,
         userSettings$,
-        vaultMultiplyHistory$,
+        vaultHistory$,
         saveVaultUsingApi$,
+        automationTriggersData$,
         id,
       ),
     bigNumberTostring,
@@ -528,20 +705,24 @@ export function setupAppContext() {
         psmExchangeQuote$,
         addGasEstimation$,
         getProportions$,
-        vaultMultiplyHistory$,
+        vaultHistory$,
         userSettings$,
         id,
       ),
     bigNumberTostring,
   )
 
-  const checkVault$ = memoize((id: BigNumber) => curry(checkVaultTypeUsingApi$)(context$, id))
+  const checkOasisCDPType$: (id: BigNumber) => Observable<VaultType> = curry(
+    createCheckOasisCDPType$,
+  )(curry(checkVaultTypeUsingApi$)(context$), cdpManagerIlks$, charterIlks)
+
   const generalManageVault$ = memoize(
     curry(createGeneralManageVault$)(
+      manageInstiVault$,
       manageMultiplyVault$,
       manageGuniVault$,
       manageVault$,
-      checkVault$,
+      checkOasisCDPType$,
       vault$,
     ),
     bigNumberTostring,
@@ -551,7 +732,13 @@ export function setupAppContext() {
 
   const productCardsData$ = createProductCardsData$(ilkDataList$, priceInfo$)
 
-  const vaultsOverview$ = memoize(curry(createVaultsOverview$)(vaults$, ilksWithBalance$))
+  const automationTriggersData$ = memoize(
+    curry(createAutomationTriggersData)(context$, onEveryBlock$, vault$),
+  )
+
+  const vaultsOverview$ = memoize(
+    curry(createVaultsOverview$)(vaults$, ilksWithBalance$, automationTriggersData$),
+  )
 
   const termsAcceptance$ = createTermsAcceptance$(
     web3Context$,
@@ -572,11 +759,7 @@ export function setupAppContext() {
   )
   const accountData$ = createAccountData(web3Context$, balance$, vaults$, ensName$)
 
-  const automationTriggersData$ = memoize(
-    curry(createAutomationTriggersData)(context$, onEveryBlock$, vault$),
-  )
-
-  const uiChanges = createUIChangesSubject()
+  const uiChanges = initializeUIChanges()
 
   return {
     web3Context$,
@@ -594,6 +777,7 @@ export function setupAppContext() {
     ilks$,
     openVault$,
     manageVault$,
+    manageInstiVault$,
     manageMultiplyVault$,
     manageGuniVault$,
     vaultsOverview$,
@@ -603,7 +787,6 @@ export function setupAppContext() {
     automationTriggersData$,
     accountData$,
     vaultHistory$,
-    vaultMultiplyHistory$,
     collateralPrices$,
     termsAcceptance$,
     reclaimCollateral$,
@@ -616,6 +799,8 @@ export function setupAppContext() {
     connectedContext$,
     productCardsData$,
     addGasEstimation$,
+    instiVault$,
+    ilkToToken$,
   }
 }
 

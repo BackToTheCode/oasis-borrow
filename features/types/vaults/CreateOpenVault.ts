@@ -1,4 +1,5 @@
 import BigNumber from "bignumber.js"
+import { ProxyActionsSmartContractAdapterInterface } from "blockchain/calls/proxyActions/adapters/ProxyActionsSmartContractAdapterInterface"
 import { IlkData } from "blockchain/ilks"
 import { ContextConnected } from 'blockchain/network'
 import { AddGasEstimationFunction,TxHelpers } from "components/AppContext"
@@ -17,8 +18,13 @@ export interface CreateOpenVault {
     balanceInfo$: (token: string, address: string | undefined) => Observable<BalanceInfo>
     ilks$: Observable<string[]>
     ilkData$: (ilk: string) => Observable<IlkData>
-    ilkToToken$: Observable<(ilk: string) => string>
-    addGasEstimation$: AddGasEstimationFunction
+    ilkToToken$: (ilk: string) => Observable<string>
+    addGasEstimation$: AddGasEstimationFunction,
+    proxyActionsAdapterResolver$: ({
+      ilk,
+    }: {
+      ilk: string
+    }) => Observable<ProxyActionsSmartContractAdapterInterface>,
     ilk: string
 }
 

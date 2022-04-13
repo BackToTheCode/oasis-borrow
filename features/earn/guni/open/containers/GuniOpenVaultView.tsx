@@ -6,7 +6,8 @@ import { Container } from 'theme-ui'
 import { OpenMultiplyVaultContainer } from '../../../../../components/vault/commonMultiply/OpenMultiplyVaultContainer'
 import { VaultContainerSpinner, WithLoadingIndicator } from '../../../../../helpers/AppSpinner'
 import { WithErrorHandler } from '../../../../../helpers/errorHandlers/WithErrorHandler'
-import { useObservableWithError } from '../../../../../helpers/observableHook'
+import { useObservable } from '../../../../../helpers/observableHook'
+import { MultiplySurveyButtons } from '../../../../../pages/multiply'
 import { GuniVaultHeader } from '../../common/GuniVaultHeader'
 import { GuniOpenMultiplyVaultDetails } from './GuniOpenMultiplyVaultDetails'
 import { GuniOpenMultiplyVaultForm } from './GuniOpenMultiplyVaultForm'
@@ -17,7 +18,7 @@ export function GuniOpenVaultView({ ilk }: { ilk: string }) {
   const { openGuniVault$, accountData$, context$ } = useAppContext()
   // const multiplyVaultWithIlk$ = openGuniVault$(ilk)
 
-  const openVaultWithError = useObservableWithError(openGuniVault$(ilk))
+  const [openVault, openVaultError] = useObservable(openGuniVault$(ilk))
 
   // useEffect(() => {
   //   const subscription = createOpenMultiplyVaultAnalytics$(
@@ -33,8 +34,8 @@ export function GuniOpenVaultView({ ilk }: { ilk: string }) {
   // }, [])
 
   return (
-    <WithErrorHandler error={openVaultWithError.error}>
-      <WithLoadingIndicator {...openVaultWithError} customLoader={<VaultContainerSpinner />}>
+    <WithErrorHandler error={openVaultError}>
+      <WithLoadingIndicator value={openVault} customLoader={<VaultContainerSpinner />}>
         {(openVault) => (
           <Container variant="vaultPageContainer">
             <OpenMultiplyVaultContainer
@@ -48,6 +49,7 @@ export function GuniOpenVaultView({ ilk }: { ilk: string }) {
               form={<GuniOpenMultiplyVaultForm {...openVault} />}
               clear={openVault.clear}
             />
+            <MultiplySurveyButtons />
           </Container>
         )}
       </WithLoadingIndicator>

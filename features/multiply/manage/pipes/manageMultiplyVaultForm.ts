@@ -6,6 +6,7 @@ import {
   OtherAction,
 } from './manageMultiplyVault'
 import { allowanceDefaults } from './manageMultiplyVaultAllowances'
+import { MAX_COLL_RATIO } from './manageMultiplyVaultCalculations'
 
 export type ManageVaultFormChange =
   | {
@@ -103,6 +104,13 @@ export function applyManageVaultForm(
       ...state,
       ...manageMultiplyInputsDefaults,
       showSliderController: !state.showSliderController,
+      depositAmount: state.depositAmount,
+      depositAmountUSD: state.depositAmountUSD,
+      requiredCollRatio: !state.showSliderController
+        ? !state.depositAmount?.gt(0)
+          ? MAX_COLL_RATIO
+          : state.maxCollRatio
+        : undefined,
     }
   }
 
@@ -119,7 +127,6 @@ export function applyManageVaultForm(
       ...state,
       ...manageMultiplyInputsDefaults,
       otherAction: change.otherAction,
-      withdrawAmount: change.otherAction === 'closeVault' ? state.maxWithdrawAmount : undefined,
     }
   }
 

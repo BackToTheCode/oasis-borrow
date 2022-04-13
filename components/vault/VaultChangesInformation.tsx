@@ -5,8 +5,8 @@ import { Tooltip, useTooltip } from 'components/Tooltip'
 import { GasEstimationStatus, HasGasEstimation } from 'helpers/form'
 import { formatAmount } from 'helpers/formatters/format'
 import { WithChildren } from 'helpers/types'
+import { useTranslation } from 'next-i18next'
 import React, { ReactNode, useCallback, useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
 
 export function VaultChangesInformationItem({
   label,
@@ -75,7 +75,7 @@ export function VaultChangesInformationArrow() {
   return <Icon name="arrow_right_light" size="auto" width="10px" height="7px" sx={{ mx: 2 }} />
 }
 
-function EstimationError({ withBrackets }: { withBrackets: boolean }) {
+export function EstimationError({ withBrackets }: { withBrackets: boolean }) {
   const textError = 'n/a'
   return <Text sx={{ color: 'onError' }}>{withBrackets ? `(${textError})` : textError}</Text>
 }
