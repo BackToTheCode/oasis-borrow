@@ -1,11 +1,12 @@
 import BigNumber from 'bignumber.js'
+import { StandardDssProxyActionsContractAdapter } from 'blockchain/calls/proxyActions/adapters/standardDssProxyActionsContractAdapter'
 import { IlkData } from 'blockchain/ilks'
-import { ilkToToken$, protoTxHelpers, TxHelpers } from 'components/AppContext'
+import { protoTxHelpers, TxHelpers } from 'components/AppContext'
 import { BalanceInfo } from 'features/shared/balanceInfo'
 import { PriceInfo } from 'features/shared/priceInfo'
 import { mockBalanceInfo$, MockBalanceInfoProps } from 'helpers/mocks/balanceInfo.mock'
 import { mockContextConnected } from 'helpers/mocks/context.mock'
-import { mockIlkData$, MockIlkDataProps } from 'helpers/mocks/ilks.mock'
+import { mockIlkData$, MockIlkDataProps, mockIlkToToken$ } from 'helpers/mocks/ilks.mock'
 import { mockPriceInfo$, MockPriceInfoProps } from 'helpers/mocks/priceInfo.mock'
 import { Observable, of } from 'rxjs'
 
@@ -102,8 +103,9 @@ export function mockOpenMultiplyVault({
     balanceInfo$,
     ilks$,
     ilkData$,
-    ilkToToken$,
+    ilkToToken$: mockIlkToToken$,
     exchangeQuote$: mockExchangeQuote$(exchangeQuote),
+    proxyActionsAdapterResolver$: () => of(StandardDssProxyActionsContractAdapter),
     addGasEstimation$: addGasEstimationMock,
     slippageLimit$: slippageLimitMock(),
     ilk,

@@ -26,7 +26,7 @@ import { VaultErrorMessage } from '../../../form/errorMessagesHandler'
 import { VaultWarningMessage } from '../../../form/warningMessagesHandler'
 import { createProxy } from '../../../proxy/createProxy'
 import { applyProxyChanges, ProxyChanges } from '../../../proxy/proxy'
-import { configureVaultInputs, validateIlk } from '../../../shared/configureVaultInputs'
+import { configureBorrowVaultInputs, validateIlk } from '../../../shared/configureVaultInputs'
 import { OpenVaultTransactionChange } from '../../../shared/transactions'
 import {
   createApplyOpenVaultTransition,
@@ -298,7 +298,7 @@ export function createOpenVault$({
   proxyActionsAdapterResolver$,
   ilk,
 }: CreateOpenVault): Observable<OpenVaultState> {
-  const vaultInputs$ = configureVaultInputs({
+  const vaultInputs$ = configureBorrowVaultInputs({
     connectedContext$,
     txHelpers$,
     priceInfo$,
@@ -308,6 +308,7 @@ export function createOpenVault$({
     allowance$,
     ilkToToken$,
     proxyActionsAdapterResolver$,
+    addGasEstimation$,
     ilks$,
     ilk,
   })

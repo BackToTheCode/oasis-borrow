@@ -325,6 +325,7 @@ export function createOpenMultiplyVault$({
     allowance$,
     proxyAddress$,
     slippageLimit$,
+    addGasEstimation$,
     ilkToToken$,
     ilks$,
     ilk,

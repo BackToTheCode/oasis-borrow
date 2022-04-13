@@ -582,6 +582,7 @@ export function setupAppContext() {
       ilkToToken$,
       exchangeQuote$,
       addGasEstimation$,
+      proxyActionsAdapterResolver$,
       slippageLimit$: userSettings$,
       ilk,
     }),
