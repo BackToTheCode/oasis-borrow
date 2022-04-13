@@ -69,6 +69,7 @@ import {
   GuniOpenMultiplyVaultConditions,
 } from './openGuniVaultConditions'
 import curry from 'ramda/src/curry'
+import { CreateOpenGuniVault } from 'features/types/vaults/CreateOpenVault'
 
 type InjectChange = { kind: 'injectStateOverride'; stateToOverride: Partial<OpenGuniVaultState> }
 
@@ -251,39 +252,28 @@ interface GuniTxData {
 
 type GuniTxDataChange = { kind: 'guniTxData' } & GuniTxData
 
-export function createOpenGuniVault$(
-  context$: Observable<ContextConnected>,
-  txHelpers$: Observable<TxHelpers>,
-  proxyAddress$: (address: string) => Observable<string | undefined>,
-  allowance$: (token: string, owner: string, spender: string) => Observable<BigNumber>,
-  priceInfo$: (token: string) => Observable<PriceInfo>,
-  balanceInfo$: (token: string, address: string | undefined) => Observable<BalanceInfo>,
-  ilks$: Observable<string[]>,
-  ilkData$: (ilk: string) => Observable<IlkData>,
-  exchangeQuote$: (
-    token: string,
-    slippage: BigNumber,
-    amount: BigNumber,
-    action: ExchangeAction,
-    exchangeType: ExchangeType,
-  ) => Observable<Quote>,
-  onEveryBlock$: Observable<number>,
-  addGasEstimation$: AddGasEstimationFunction,
-  ilk: string,
-  token1Balance$: (args: { token: string; leveragedAmount: BigNumber }) => Observable<BigNumber>,
-  getGuniMintAmount$: (args: {
-    token: string
-    amountOMax: BigNumber
-    amount1Max: BigNumber
-  }) => Observable<{ amount0: BigNumber; amount1: BigNumber; mintAmount: BigNumber }>,
-  slippageLimit$: Observable<UserSettingsState>,
-): Observable<OpenGuniVaultState> {
+export function createOpenGuniVault$({
+  connectedContext$,
+  txHelpers$,
+  proxyAddress$,
+  allowance$,
+  priceInfo$,
+  balanceInfo$,
+  ilks$,
+  ilkData$,
+  exchangeQuote$,
+  addGasEstimation$,
+  ilk,
+  token1Balance$,
+  getGuniMintAmount$,
+  slippageLimit$,
+}: CreateOpenGuniVault): Observable<OpenGuniVaultState> {
   return ilks$.pipe(
     switchMap((ilks) =>
       iif(
         () => !ilks.some((i) => i === ilk),
         throwError(new Error(`Ilk ${ilk} does not exist`)),
-        combineLatest(context$, txHelpers$, ilkData$(ilk), slippageLimit$).pipe(
+        combineLatest(connectedContext$, txHelpers$, ilkData$(ilk), slippageLimit$).pipe(
           first(),
           switchMap(([context, txHelpers, ilkData, { slippage }]) => {
             const { token, ilkDebtAvailable } = ilkData

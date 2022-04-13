@@ -5,7 +5,7 @@ import { TxHelpers } from 'components/AppContext'
 import { setAllowance } from 'features/allowance/setAllowance'
 import { BalanceInfo, balanceInfoChange$ } from 'features/shared/balanceInfo'
 import { PriceInfo, priceInfoChange$ } from 'features/shared/priceInfo'
-import { CreateOpenVault } from 'features/types/vaults/CreateOpenVault'
+import { CreateOpenBorrowVault } from 'features/types/vaults/CreateOpenVault'
 import { GasEstimationStatus, HasGasEstimation } from 'helpers/form'
 import { curry } from 'lodash'
 import { merge, Observable, Subject } from 'rxjs'
@@ -297,7 +297,7 @@ export function createOpenVault$({
   addGasEstimation$,
   proxyActionsAdapterResolver$,
   ilk,
-}: CreateOpenVault): Observable<OpenVaultState> {
+}: CreateOpenBorrowVault): Observable<OpenVaultState> {
   const vaultInputs$ = configureBorrowVaultInputs({
     connectedContext$,
     txHelpers$,
