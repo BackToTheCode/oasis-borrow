@@ -9,6 +9,7 @@ import { UserSettingsState } from 'features/userSettings/userSettings'
 import { iif, Observable, of, pipe, throwError } from 'rxjs'
 import { combineLatestObject } from 'rxjs-etc'
 import { switchMap } from 'rxjs/operators'
+import { TypeOf } from 'zod'
 
 declare module 'rxjs/internal/util/pipe' {
   export function pipe<T>(
@@ -28,6 +29,42 @@ export function validateIlk(ilk: string) {
   )
 }
 
+type ConfigureBaseVaultInputs = {
+  connectedContext$: Observable<ContextConnected>
+  txHelpers$: Observable<TxHelpers>
+  priceInfo$: (token: string) => Observable<PriceInfo>
+  allowance$: (token: string, owner: string, spender: string) => Observable<BigNumber>
+  balanceInfo$: (token: string, address: string | undefined) => Observable<BalanceInfo>
+  ilkData$: (ilk: string) => Observable<IlkData>
+  proxyAddress$: (address: string) => Observable<string | undefined>
+  addGasEstimation$: AddGasEstimationFunction
+  ilkToToken$: (ilk: string) => Observable<string>
+  ilks$: Observable<string[]>
+  ilk: string
+}
+
+type ConfigureBorrowVaultInputs = ConfigureBaseVaultInputs & {
+  proxyActionsAdapterResolver$: ({
+    ilk,
+  }: {
+    ilk: string
+  }) => Observable<ProxyActionsSmartContractAdapterInterface>
+}
+
+type ConfigureMultiplyVaultInputs = ConfigureBaseVaultInputs & {
+  slippageLimit$: Observable<UserSettingsState>
+}
+
+// type ConfigureGuniVaultInputs = ConfigureBaseVaultInputs & {
+//   psmExchangeQuote$: (
+//     token: string,
+//     slippage: BigNumber,
+//     amount: BigNumber,
+//     action: ExchangeAction,
+//     exchangeType: ExchangeType,
+//   ) => createExchangeQuote$(context$, 'PSM', token, slippage, amount, action, exchangeType)
+// }
+
 type BaseVaultInputsReturn = {
   context: ContextConnected
   txHelpers: TxHelpers
@@ -38,10 +75,16 @@ type BaseVaultInputsReturn = {
   ilkData: IlkData
   ilks: string[]
   allowance: BigNumber | undefined
-  addGasEstimation: AddGasEstimationFunction
   proxyAddress: string | undefined
+}
+
+type BorrowVaultInputsReturn = BaseVaultInputsReturn & {
   proxyActionsAdapter: ProxyActionsSmartContractAdapterInterface
 }
+
+type MultiplyVaultInputsReturn = BaseVaultInputsReturn & { slippageLimit: UserSettingsState }
+
+type GuniVaultInputsReturn = BaseVaultInputsReturn
 
 export function configureBaseVaultInputs({
   connectedContext$,
@@ -55,45 +98,24 @@ export function configureBaseVaultInputs({
   ilkToToken$,
   ilks$,
   ilk,
-}: {
-  connectedContext$: Observable<ContextConnected>
-  txHelpers$: Observable<TxHelpers>
-  priceInfo$: (token: string) => Observable<PriceInfo>
-  allowance$: (token: string, owner: string, spender: string) => Observable<BigNumber>
-  balanceInfo$: (token: string, address: string | undefined) => Observable<BalanceInfo>
-  ilkData$: (ilk: string) => Observable<IlkData>
-  proxyAddress$: (address: string) => Observable<string | undefined>
-  addGasEstimation$: AddGasEstimationFunction
-  ilkToToken$: (ilk: string) => Observable<string>
-  ilks$: Observable<string[]>
-  ilk: string
-}): Observable<BaseVaultInputsReturn> {
-  return combineLatestObject({ context: connectedContext$, ilkToToken: ilkToToken$ }).pipe(
-    switchMap(
-      ({
-        context,
-        ilkToToken,
-      }: {
-        context: ContextConnected
-        ilkToToken: (ilk: string) => string
-      }) => {
-        const account = context.account
-        const token = ilkToToken(ilk)
+}: ConfigureBaseVaultInputs): Observable<BaseVaultInputsReturn> {
+  return combineLatestObject({ context: connectedContext$, token: ilkToToken$(ilk) }).pipe(
+    switchMap(({ context, token }: { context: ContextConnected; token: string }) => {
+      const account = context.account
 
-        return combineLatestObject({
-          context: connectedContext$,
-          txHelpers: txHelpers$,
-          token: of(token),
-          account: of(account),
-          priceInfo: priceInfo$(token),
-          balanceInfo: balanceInfo$(token, account),
-          ilkData: ilkData$(ilk),
-          proxyAddress: proxyAddress$(account),
-          addGasEstimation: addGasEstimation$,
-          ilks: ilks$,
-        })
-      },
-    ),
+      return combineLatestObject({
+        context: connectedContext$,
+        txHelpers: txHelpers$,
+        token: of(token),
+        account: of(account),
+        priceInfo: priceInfo$(token),
+        balanceInfo: balanceInfo$(token, account),
+        ilkData: ilkData$(ilk),
+        proxyAddress: proxyAddress$(account),
+        addGasEstimation: addGasEstimation$,
+        ilks: ilks$,
+      })
+    }),
     switchMap(
       ({
         context,
@@ -104,6 +126,7 @@ export function configureBaseVaultInputs({
         balanceInfo,
         ilkData,
         proxyAddress,
+        addGasEstimation,
         ilks,
       }) => {
         const allowance: Observable<undefined | BigNumber> =
@@ -118,6 +141,7 @@ export function configureBaseVaultInputs({
           balanceInfo,
           ilkData,
           proxyAddress,
+          addGasEstimation,
           allowance,
           ilks,
         })
@@ -139,26 +163,7 @@ export function configureBorrowVaultInputs({
   ilkToToken$,
   ilks$,
   ilk,
-}: {
-  connectedContext$: Observable<ContextConnected>
-  txHelpers$: Observable<TxHelpers>
-  priceInfo$: (token: string) => Observable<PriceInfo>
-  allowance$: (token: string, owner: string, spender: string) => Observable<BigNumber>
-  balanceInfo$: (token: string, address: string | undefined) => Observable<BalanceInfo>
-  ilkData$: (ilk: string) => Observable<IlkData>
-  proxyAddress$: (address: string) => Observable<string | undefined>
-  addGasEstimation$: AddGasEstimationFunction
-  proxyActionsAdapterResolver$: ({
-    ilk,
-  }: {
-    ilk: string
-  }) => Observable<ProxyActionsSmartContractAdapterInterface>
-  ilkToToken$: (ilk: string) => Observable<string>
-  ilks$: Observable<string[]>
-  ilk: string
-}): Observable<
-  BaseVaultInputsReturn & { proxyActionsAdapter: ProxyActionsSmartContractAdapterInterface }
-> {
+}: ConfigureBorrowVaultInputs): Observable<BorrowVaultInputsReturn> {
   const vaultInputs$ = configureBaseVaultInputs({
     connectedContext$,
     txHelpers$,
@@ -196,20 +201,42 @@ export function configureMultiplyVaultInputs({
   ilkToToken$,
   ilks$,
   ilk,
-}: {
-  connectedContext$: Observable<ContextConnected>
-  txHelpers$: Observable<TxHelpers>
-  priceInfo$: (token: string) => Observable<PriceInfo>
-  allowance$: (token: string, owner: string, spender: string) => Observable<BigNumber>
-  balanceInfo$: (token: string, address: string | undefined) => Observable<BalanceInfo>
-  ilkData$: (ilk: string) => Observable<IlkData>
-  proxyAddress$: (address: string) => Observable<string | undefined>
-  addGasEstimation$: AddGasEstimationFunction
-  slippageLimit$: Observable<UserSettingsState>
-  ilkToToken$: (ilk: string) => Observable<string>
-  ilks$: Observable<string[]>
-  ilk: string
-}): Observable<BaseVaultInputsReturn & { slippageLimit: UserSettingsState }> {
+}: ConfigureMultiplyVaultInputs): Observable<MultiplyVaultInputsReturn> {
+  const vaultInputs$ = configureBaseVaultInputs({
+    connectedContext$,
+    txHelpers$,
+    priceInfo$,
+    balanceInfo$,
+    ilkData$,
+    proxyAddress$,
+    addGasEstimation$,
+    allowance$,
+    ilkToToken$,
+    ilks$,
+    ilk,
+  })
+
+  return vaultInputs$.pipe(
+    switchMap((inputs) => {
+      return combineLatestObject({ ...inputs, slippageLimit: slippageLimit$ })
+    }),
+  )
+}
+
+export function configureGuniVaultInputs({
+  connectedContext$,
+  txHelpers$,
+  priceInfo$,
+  allowance$,
+  balanceInfo$,
+  ilkData$,
+  proxyAddress$,
+  slippageLimit$,
+  addGasEstimation$,
+  ilkToToken$,
+  ilks$,
+  ilk,
+}: ConfigureMultiplyVaultInputs) {
   const vaultInputs$ = configureBaseVaultInputs({
     connectedContext$,
     txHelpers$,

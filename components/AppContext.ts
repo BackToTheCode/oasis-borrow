@@ -592,7 +592,7 @@ export function setupAppContext() {
   const getGuniMintAmount$ = observe(onEveryBlock$, context$, getGuniMintAmount)
 
   const openGuniVault$ = memoize((ilk: string) =>
-    createOpenGuniVault$(
+    createOpenGuniVault$({
       connectedContext$,
       txHelpers$,
       proxyAddress$,
@@ -601,14 +601,14 @@ export function setupAppContext() {
       balanceInfo$,
       ilks$,
       ilkData$,
-      psmExchangeQuote$,
-      onEveryBlock$,
+      ilkToToken$,
+      exchangeQuote$: psmExchangeQuote$,
       addGasEstimation$,
       ilk,
       token1Balance$,
       getGuniMintAmount$,
-      userSettings$,
-    ),
+      slippageLimit$: userSettings$,
+    }),
   )
 
   const manageVault$ = memoize(
