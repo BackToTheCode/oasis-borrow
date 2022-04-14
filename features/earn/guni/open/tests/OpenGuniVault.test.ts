@@ -3,7 +3,7 @@ import { expect } from 'chai'
 import { protoTxHelpers } from 'components/AppContext'
 import { mockBalanceInfo$ } from 'helpers/mocks/balanceInfo.mock'
 import { mockContextConnected } from 'helpers/mocks/context.mock'
-import { mockIlkData$ } from 'helpers/mocks/ilks.mock'
+import { mockIlkData$, mockIlkToToken$ } from 'helpers/mocks/ilks.mock'
 import { mockPriceInfo$ } from 'helpers/mocks/priceInfo.mock'
 import { getStateUnpacker } from 'helpers/testHelpers'
 import { Observable, of } from 'rxjs'
@@ -36,8 +36,6 @@ function ilkData$() {
   })
 }
 
-const mockOnEveryBlock = new Observable<number>()
-
 function token1Balance$() {
   return of(new BigNumber(8.549))
 }
@@ -52,23 +50,23 @@ function getGuniMintAmount$() {
 
 describe('OpenGuniVault', () => {
   it('playground', () => {
-    const openGuniVault$ = createOpenGuniVault$(
-      of(mockContextConnected),
-      of(protoTxHelpers),
+    const openGuniVault$ = createOpenGuniVault$({
+      connectedContext$: of(mockContextConnected),
+      txHelpers$: of(protoTxHelpers),
       proxyAddress$,
       allowance$,
-      (token: string) => mockPriceInfo$({ token }),
-      (address?: string) => mockBalanceInfo$({ address }),
-      ilks$(),
-      () => ilkData$(),
-      mockExchangeQuote$(),
-      mockOnEveryBlock,
-      addGasEstimationMock,
-      'GUNIV3DAIUSDC1',
+      priceInfo$: (token: string) => mockPriceInfo$({ token }),
+      balanceInfo$: (address?: string) => mockBalanceInfo$({ address }),
+      ilks$: ilks$(),
+      ilkToToken$: mockIlkToToken$,
+      ilkData$: () => ilkData$(),
+      exchangeQuote$: mockExchangeQuote$(),
+      addGasEstimation$: addGasEstimationMock,
+      ilk: 'GUNIV3DAIUSDC1',
       token1Balance$,
       getGuniMintAmount$,
-      slippageLimitMock(),
-    )
+      slippageLimit$: slippageLimitMock(),
+    })
 
     const state = getStateUnpacker(openGuniVault$)
 
@@ -76,23 +74,23 @@ describe('OpenGuniVault', () => {
   })
 
   it('uses default GUNI slippage', () => {
-    const openGuniVault$ = createOpenGuniVault$(
-      of(mockContextConnected),
-      of(protoTxHelpers),
+    const openGuniVault$ = createOpenGuniVault$({
+      connectedContext$: of(mockContextConnected),
+      txHelpers$: of(protoTxHelpers),
       proxyAddress$,
       allowance$,
-      (token: string) => mockPriceInfo$({ token }),
-      (address?: string) => mockBalanceInfo$({ address }),
-      ilks$(),
-      () => ilkData$(),
-      mockExchangeQuote$(),
-      mockOnEveryBlock,
-      addGasEstimationMock,
-      'GUNIV3DAIUSDC1',
+      priceInfo$: (token: string) => mockPriceInfo$({ token }),
+      balanceInfo$: (address?: string) => mockBalanceInfo$({ address }),
+      ilkToToken$: mockIlkToToken$,
+      ilks$: ilks$(),
+      ilkData$: () => ilkData$(),
+      exchangeQuote$: mockExchangeQuote$(),
+      addGasEstimation$: addGasEstimationMock,
+      ilk: 'GUNIV3DAIUSDC1',
       token1Balance$,
       getGuniMintAmount$,
-      slippageLimitMock(),
-    )
+      slippageLimit$: slippageLimitMock(),
+    })
 
     const state = getStateUnpacker(openGuniVault$)()
 
