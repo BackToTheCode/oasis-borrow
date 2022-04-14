@@ -71,6 +71,7 @@ import {
   GuniOpenMultiplyVaultConditions,
 } from './openGuniVaultConditions'
 import curry from 'ramda/src/curry'
+import { CreateOpenGuniVault } from 'features/types/vaults/CreateOpenVault'
 
 type InjectChange = { kind: 'injectStateOverride'; stateToOverride: Partial<OpenGuniVaultState> }
 
