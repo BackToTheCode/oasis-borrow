@@ -1,15 +1,15 @@
 import BigNumber from 'bignumber.js'
-import dsProxyRegistryAbi from 'blockchain/abi/ds-proxy-registry.json'
-import dsProxyAbi from 'blockchain/abi/ds-proxy.json'
-import dssProxyActionsAbi from 'blockchain/abi/dss-proxy-actions.json'
-import erc20Abi from 'blockchain/abi/erc20.json'
-import getCdpsAbi from 'blockchain/abi/get-cdps.json'
-import mcdCatAbi from 'blockchain/abi/mcd-cat.json'
-import flipAbi from 'blockchain/abi/mcd-flip.json'
-import joinDaiAbi from 'blockchain/abi/mcd-join-dai.json'
-import osmAbi from 'blockchain/abi/mcd-osm.json'
-import spotAbi from 'blockchain/abi/mcd-spot.json'
-import vatAbi from 'blockchain/abi/vat.json'
+import dsProxyRegistryAbi from 'apps/main/blockchain/abi/ds-proxy-registry.json'
+import dsProxyAbi from 'apps/main/blockchain/abi/ds-proxy.json'
+import dssProxyActionsAbi from 'apps/main/blockchain/abi/dss-proxy-actions.json'
+import erc20Abi from 'apps/main/blockchain/abi/erc20.json'
+import getCdpsAbi from 'apps/main/blockchain/abi/get-cdps.json'
+import mcdCatAbi from 'apps/main/blockchain/abi/mcd-cat.json'
+import flipAbi from 'apps/main/blockchain/abi/mcd-flip.json'
+import joinDaiAbi from 'apps/main/blockchain/abi/mcd-join-dai.json'
+import osmAbi from 'apps/main/blockchain/abi/mcd-osm.json'
+import spotAbi from 'apps/main/blockchain/abi/mcd-spot.json'
+import vatAbi from 'apps/main/blockchain/abi/vat.json'
 import {
   CDP_MANAGER,
   GET_CDPS,
@@ -23,8 +23,8 @@ import {
   PIP_ETH,
   PROXY_ACTIONS,
   PROXY_REGISTRY,
-} from 'blockchain/addresses/mainnet.json'
-import { amountToWei } from 'blockchain/utils'
+} from 'apps/main/blockchain/addresses/mainnet.json'
+import { amountToWei } from 'apps/main/blockchain/utils'
 import { ethers } from 'ethers'
 import _ from 'lodash'
 import { assert } from 'ts-essentials'

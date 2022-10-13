@@ -2,7 +2,7 @@ import { expect } from 'chai'
 import { readFileSync } from 'fs'
 import { describe, it } from 'mocha'
 
-import nextConfig from './next-i18next.config'
+import nextConfig from './apps/main/next-i18next.config'
 
 describe('Locale - proper JSON files', () => {
   const localeList = nextConfig.i18n.locales

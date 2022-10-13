@@ -2,7 +2,7 @@ FROM node:16.13.2
 
 EXPOSE 3000
 
-COPY package.json /usr/src/app/package.json
+COPY apps/main/package.json /usr/src/app/package.json
 COPY yarn.lock /usr/src/app/yarn.lock
 COPY ./server/ /usr/src/app/server
 

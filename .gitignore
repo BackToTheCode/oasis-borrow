@@ -14,21 +14,21 @@ yalc.lock
 .DS_Store
 .sentryclirc
 
-public/precache.*.*.js
-public/sw.js
-public/workbox-*.js
-public/worker-*.js
-public/precache.*.*.js.map
-public/sw.js.map
-public/workbox-*.js.map
-public/worker-*.js.map
-public/sitemap.xml
+apps/main/public/precache.*.*.js
+apps/main/public/sw.js
+apps/main/public/workbox-*.js
+apps/main/public/worker-*.js
+apps/main/public/precache.*.*.js.map
+apps/main/public/sw.js.map
+apps/main/public/workbox-*.js.map
+apps/main/public/worker-*.js.map
+apps/main/public/sitemap.xml
 /types
 
-storybook-static
-storybook-static/*
+apps/main/storybook-static
+apps/main/storybook-static/*
 cache
-next-env.d.ts
+apps/main/next-env.d.ts
 
 # xstate autogenereted files
 *.typegen.ts

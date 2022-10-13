@@ -1,4 +1,4 @@
-import { OasisStats } from '../../features/homepage/OasisStats'
+import { OasisStats } from '../../apps/main/features/homepage/OasisStats'
 import { config } from '../config'
 import { getSnowflakeConnection } from '../snowflake'
 

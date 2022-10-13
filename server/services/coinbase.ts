@@ -1,6 +1,6 @@
 import axios from 'axios'
-import { tokens } from 'blockchain/tokensMetadata'
-import { PriceServiceResponse } from 'helpers/types'
+import { tokens } from 'apps/main/blockchain/tokensMetadata'
+import { PriceServiceResponse } from 'apps/main/helpers/types'
 
 interface CoinbaseApiResponse {
   ask: string

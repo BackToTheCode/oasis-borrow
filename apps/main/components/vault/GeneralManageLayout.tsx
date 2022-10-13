@@ -1,0 +1,95 @@
+import { TriggerType } from '@oasisdex/automation'
+import { getNetworkName } from '@oasisdex/web3-context'
+import { isSupportedAutomationIlk } from 'apps/main/blockchain/tokensMetadata'
+import { useAutomationContext } from 'apps/main/components/AutomationContextProvider'
+import { useAutoBSstateInitialization } from 'apps/main/features/automation/common/state/useAutoBSStateInitializator'
+import { useAutoTakeProfitStateInitializator } from 'apps/main/features/automation/optimization/autoTakeProfit/state/useAutoTakeProfitStateInitializator'
+import { useConstantMultipleStateInitialization } from 'apps/main/features/automation/optimization/constantMultiple/state/useConstantMultipleStateInitialization'
+import { useStopLossStateInitializator } from 'apps/main/features/automation/protection/stopLoss/state/useStopLossStateInitializator'
+import { guniFaq } from 'apps/main/features/content/faqs/guni'
+import { GuniVaultHeader } from 'apps/main/features/earn/guni/common/GuniVaultHeader'
+import { GeneralManageVaultState } from 'apps/main/features/generalManageVault/generalManageVault'
+import { VaultType } from 'apps/main/features/generalManageVault/vaultType'
+import { VaultNoticesView } from 'apps/main/features/notices/VaultsNoticesView'
+import { useTranslation } from 'next-i18next'
+import React from 'react'
+import { Box, Card, Grid } from 'theme-ui'
+
+import { DefaultVaultHeadline } from './DefaultVaultHeadline'
+import { GeneralManageTabBar } from './GeneralManageTabBar'
+
+interface GeneralManageLayoutProps {
+  generalManageVault: GeneralManageVaultState
+}
+
+export function GeneralManageLayout({ generalManageVault }: GeneralManageLayoutProps) {
+  const {
+    stopLossTriggerData,
+    autoSellTriggerData,
+    autoBuyTriggerData,
+    constantMultipleTriggerData,
+    autoTakeProfitTriggerData,
+  } = useAutomationContext()
+  const { t } = useTranslation()
+  const { ilkData, vault, priceInfo } = generalManageVault.state
+
+  const showAutomationTabs = isSupportedAutomationIlk(getNetworkName(), vault.ilk)
+  const isStopLossEnabled = useStopLossStateInitializator(ilkData, vault, stopLossTriggerData)
+  const isAutoSellEnabled = useAutoBSstateInitialization(
+    ilkData,
+    vault,
+    autoSellTriggerData,
+    stopLossTriggerData,
+    TriggerType.BasicSell,
+  )
+  const isAutoBuyEnabled = useAutoBSstateInitialization(
+    ilkData,
+    vault,
+    autoBuyTriggerData,
+    stopLossTriggerData,
+    TriggerType.BasicBuy,
+  )
+  const isConstantMultipleEnabled = useConstantMultipleStateInitialization(
+    ilkData,
+    vault,
+    constantMultipleTriggerData,
+    autoBuyTriggerData,
+    autoSellTriggerData,
+    stopLossTriggerData,
+  )
+  const isAutoTakeProfitEnabled = useAutoTakeProfitStateInitializator(
+    vault,
+    autoTakeProfitTriggerData,
+  )
+
+  const headlineElement =
+    generalManageVault.type === VaultType.Earn ? (
+      <GuniVaultHeader token={ilkData.token} ilk={ilkData.ilk} />
+    ) : (
+      <DefaultVaultHeadline
+        header={t('vault.header', { ilk: vault.ilk, id: vault.id })}
+        token={[vault.token]}
+        priceInfo={priceInfo}
+      />
+    )
+
+  const protectionEnabled = isStopLossEnabled || isAutoSellEnabled
+  const optimizationEnabled =
+    isAutoBuyEnabled || isConstantMultipleEnabled || isAutoTakeProfitEnabled
+  const positionInfo =
+    generalManageVault.type === VaultType.Earn ? <Card variant="faq">{guniFaq}</Card> : undefined
+
+  return (
+    <Grid gap={0} sx={{ width: '100%' }}>
+      <VaultNoticesView id={vault.id} />
+      <Box sx={{ zIndex: 0, mt: 4 }}>{headlineElement}</Box>
+      <GeneralManageTabBar
+        positionInfo={positionInfo}
+        generalManageVault={generalManageVault}
+        showAutomationTabs={showAutomationTabs}
+        protectionEnabled={protectionEnabled}
+        optimizationEnabled={optimizationEnabled}
+      />
+    </Grid>
+  )
+}
